@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const mahber_controller_1 = require("../controllers/mahber.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+router.post('/', auth_middleware_1.authenticateToken, mahber_controller_1.addMahiber);
+router.get('/', auth_middleware_1.authenticateToken, mahber_controller_1.getMyMahibers);
+router.get('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.getMahiber);
+router.put('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.editMahiber);
+router.delete('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.removeMahiber);
+exports.default = router;
