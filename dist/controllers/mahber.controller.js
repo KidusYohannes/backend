@@ -12,19 +12,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.removeMahiber = exports.editMahiber = exports.getMahiber = exports.getMyMahibers = exports.addMahiber = void 0;
 const mahber_service_1 = require("../services/mahber.service");
 const addMahiber = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!req.user)
+    if (!req.user) {
         res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
     try {
-        if (req.user !== null && req.user !== undefined) {
-            const mahiber = yield (0, mahber_service_1.createMahber)(Object.assign(Object.assign({}, req.body), { created_by: req.user.id }));
-            res.status(201).json(mahiber);
-        }
-        else {
-            res.status(400).json({ message: 'User not authenticated' });
-        }
+        // Always use the authenticated user as the creator
+        const payload = Object.assign(Object.assign({}, req.body), { created_by: req.user.id });
+        const { mahber, contributionTerm } = yield (0, mahber_service_1.createMahberWithContributionTerm)(payload);
+        res.status(201).json({ mahber, contributionTerm });
     }
     catch (err) {
-        res.status(400).json({ message: err.message || 'Failed to create mahiber' });
+        res.status(400).json({ message: err.message || 'Failed to create mahber' });
     }
 });
 exports.addMahiber = addMahiber;

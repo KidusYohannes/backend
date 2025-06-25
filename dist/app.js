@@ -30,7 +30,7 @@ app.use((0, express_rate_limit_1.default)({
 app.use(express_1.default.json());
 // Routes
 app.use('/users', user_routes_1.default);
-app.use('/mahiber', mahber_routes_1.default);
+app.use('/mahber', mahber_routes_1.default);
 app.use('/members', member_routes_1.default);
 app.use('/', auth_routes_1.default);
 // Error handler to avoid leaking stack traces

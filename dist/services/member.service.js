@@ -12,7 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.unbanMember = exports.banMember = exports.respondToJoinRequest = exports.respondToInvite = exports.inviteMember = exports.requestToJoinMahber = exports.getAllMahbers = void 0;
 const member_model_1 = require("../models/member.model");
 const mahber_model_1 = require("../models/mahber.model");
+const mahber_contribution_term_model_1 = require("../models/mahber_contribution_term.model");
+const mahber_contribution_model_1 = require("../models/mahber_contribution.model");
 const sequelize_1 = require("sequelize");
+const utils_1 = require("../utils/utils");
 const getAllMahbers = () => __awaiter(void 0, void 0, void 0, function* () {
     return mahber_model_1.Mahber.findAll();
 });
@@ -41,15 +44,50 @@ const inviteMember = (adminId, edirId, userId) => __awaiter(void 0, void 0, void
     return member_model_1.Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited' });
 });
 exports.inviteMember = inviteMember;
+function createMemberContributionOnAccept(edirId, userId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Find Mahber and User
+        const mahber = yield mahber_model_1.Mahber.findByPk(edirId);
+        if (!mahber)
+            throw new Error('Mahber not found');
+        // Get active contribution term
+        const term = yield mahber_contribution_term_model_1.MahberContributionTerm.findOne({
+            where: { mahber_id: edirId, status: 'active' },
+            order: [['effective_from', 'DESC']]
+        });
+        if (!term)
+            throw new Error('No active contribution term found');
+        // Get current period number
+        const period_number = yield (0, utils_1.getCurrentPeriodNumber)(Number(edirId));
+        // Check if contribution already exists for this member and period
+        const exists = yield mahber_contribution_model_1.MahberContribution.findOne({
+            where: { mahber_id: Number(edirId), member_id: Number(userId), period_number }
+        });
+        if (exists)
+            return exists;
+        // Create the contribution row
+        return mahber_contribution_model_1.MahberContribution.create({
+            mahber_id: Number(edirId),
+            member_id: Number(userId),
+            period_number,
+            contribution_term_id: term.id,
+            amount_due: term.amount,
+            amount_paid: 0,
+            status: 'pending',
+            period_start_date: term.effective_from
+        });
+    });
+}
 const respondToInvite = (userId, edirId, accept) => __awaiter(void 0, void 0, void 0, function* () {
     const member = yield member_model_1.Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'invited' } });
     if (!member)
         throw new Error('No invite found');
     if (accept) {
-        // Accept: set all other memberships to rejected/banned
         yield member_model_1.Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [sequelize_1.Op.ne]: 'invited' } } });
         member.status = 'accepted';
         yield member.save();
+        // Create member contribution for current period with status 'pending'
+        yield createMemberContributionOnAccept(edirId, userId);
         return member;
     }
     else {
@@ -68,10 +106,11 @@ const respondToJoinRequest = (adminId, edirId, userId, accept) => __awaiter(void
     if (!member)
         throw new Error('No join request found');
     if (accept) {
-        // Accept: set all other memberships to rejected/banned
         yield member_model_1.Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [sequelize_1.Op.ne]: 'requested' } } });
         member.status = 'accepted';
         yield member.save();
+        // Create member contribution for current period with status 'pending'
+        yield createMemberContributionOnAccept(edirId, userId);
         return member;
     }
     else {

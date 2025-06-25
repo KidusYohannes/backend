@@ -37,7 +37,6 @@ const express_1 = require("express");
 const memberController = __importStar(require("../controllers/member.controller"));
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
-router.get('/mahbers', auth_middleware_1.authenticateToken, memberController.getAllMahbers);
 router.post('/request', auth_middleware_1.authenticateToken, memberController.requestToJoin);
 router.post('/invite', auth_middleware_1.authenticateToken, memberController.inviteMember);
 router.post('/invite/respond', auth_middleware_1.authenticateToken, memberController.respondToInvite);

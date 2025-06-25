@@ -20,7 +20,7 @@ interface MahberContributionCreationAttributes extends Optional<MahberContributi
 
 //export type MahberContributionStatus = 'unpaid' | 'partial' | 'paid';
 
-export class MahberContribution  extends Model<MahberContributionAttributes, MahberContributionCreationAttributes> implements MahberContributionAttributes{
+export class MahberContribution extends Model<MahberContributionAttributes, MahberContributionCreationAttributes> implements MahberContributionAttributes {
   public id!: number;
   public mahber_id?: number;
   public member_id?: number;
@@ -32,3 +32,23 @@ export class MahberContribution  extends Model<MahberContributionAttributes, Mah
   public createdAt?: string;
   public period_start_date?: string; // ISO string or Date
 }
+
+MahberContribution.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    mahber_id: { type: DataTypes.INTEGER },
+    member_id: { type: DataTypes.INTEGER },
+    period_number: { type: DataTypes.INTEGER },
+    contribution_term_id: { type: DataTypes.INTEGER },
+    amount_due: { type: DataTypes.DECIMAL },
+    amount_paid: { type: DataTypes.DECIMAL },
+    status: { type: DataTypes.STRING },
+    createdAt: { type: DataTypes.DATE },
+    period_start_date: { type: DataTypes.DATEONLY }
+  },
+  {
+    sequelize,
+    tableName: 'mahber_contributions',
+    timestamps: false
+  }
+);

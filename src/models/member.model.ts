@@ -20,3 +20,19 @@ export class Member extends Model<MemberAttributes, MemberCreationAttributes> im
   public invite_link?: string;
   public status!: string;
 }
+
+Member.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    member_id: { type: DataTypes.INTEGER, allowNull: false },
+    edir_id: { type: DataTypes.INTEGER, allowNull: false },
+    role: { type: DataTypes.STRING, allowNull: false },
+    invite_link: { type: DataTypes.STRING },
+    status: { type: DataTypes.STRING, allowNull: false }
+  },
+  {
+    sequelize,
+    tableName: 'members',
+    timestamps: false
+  }
+);

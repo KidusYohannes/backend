@@ -34,3 +34,26 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public updated_by?: number;
   public updated_at?: Date;
 }
+
+Mahber.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    name: { type: DataTypes.STRING, allowNull: false },
+    created_by: { type: DataTypes.INTEGER, allowNull: false },
+    desccription: { type: DataTypes.STRING },
+    type: { type: DataTypes.STRING },
+    contribution_unit: { type: DataTypes.STRING },
+    contribution_frequency: { type: DataTypes.STRING },
+    contribution_amount: { type: DataTypes.STRING },
+    contribution_start_date: { type: DataTypes.DATEONLY },
+    affiliation: { type: DataTypes.STRING },
+    created_at: { type: DataTypes.DATE },
+    updated_by: { type: DataTypes.INTEGER },
+    updated_at: { type: DataTypes.DATE }
+  },
+  {
+    sequelize,
+    tableName: 'mahber',
+    timestamps: false
+  }
+);

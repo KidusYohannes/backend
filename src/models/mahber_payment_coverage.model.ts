@@ -15,3 +15,17 @@ export class MahberPaymentCoverage extends Model<MahberPaymentCoverageAttributes
   public contribution_id!: number;
   public amount_applied!: number;
 }
+
+MahberPaymentCoverage.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    payment_id: { type: DataTypes.INTEGER, allowNull: false },
+    contribution_id: { type: DataTypes.INTEGER, allowNull: false },
+    amount_applied: { type: DataTypes.DECIMAL, allowNull: false }
+  },
+  {
+    sequelize,
+    tableName: 'mahber_payment_coverage',
+    timestamps: false
+  }
+);

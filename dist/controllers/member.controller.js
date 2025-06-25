@@ -42,8 +42,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.unbanMember = exports.banMember = exports.respondToJoinRequest = exports.respondToInvite = exports.inviteMember = exports.requestToJoin = exports.getAllMahbers = void 0;
+exports.getMahberMembers = exports.unbanMember = exports.banMember = exports.respondToJoinRequest = exports.respondToInvite = exports.inviteMember = exports.requestToJoin = exports.getAllMahbers = void 0;
 const memberService = __importStar(require("../services/member.service"));
+const member_model_1 = require("../models/member.model");
 const getAllMahbers = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const mahbers = yield memberService.getAllMahbers();
     res.json(mahbers);
@@ -109,3 +110,14 @@ const unbanMember = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 });
 exports.unbanMember = unbanMember;
+const getMahberMembers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const mahberId = req.params.id;
+    try {
+        const members = yield member_model_1.Member.findAll({ where: { edir_id: mahberId } });
+        res.json(members);
+    }
+    catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+exports.getMahberMembers = getMahberMembers;

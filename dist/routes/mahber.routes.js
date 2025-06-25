@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const mahber_controller_1 = require("../controllers/mahber.controller");
+const member_controller_1 = require("../controllers/member.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 router.post('/', auth_middleware_1.authenticateToken, mahber_controller_1.addMahiber);
@@ -9,4 +10,5 @@ router.get('/', auth_middleware_1.authenticateToken, mahber_controller_1.getMyMa
 router.get('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.getMahiber);
 router.put('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.editMahiber);
 router.delete('/:id', auth_middleware_1.authenticateToken, mahber_controller_1.removeMahiber);
+router.get('/:id/members', auth_middleware_1.authenticateToken, member_controller_1.getMahberMembers);
 exports.default = router;

@@ -16,7 +16,7 @@ if (!fs_1.default.existsSync(logDir)) {
 const logStream = fs_1.default.createWriteStream(logFile, { flags: 'a' });
 // Home page route
 app_1.default.get('/', (req, res) => {
-    res.send('Welcome to EdirConnect!');
+    res.send('Welcome to Mahber!');
 });
 const PORT = process.env.PORT || 3000;
 app_1.default.listen(PORT, () => {
