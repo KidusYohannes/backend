@@ -30,7 +30,7 @@ app.use(express.json());
 
 // Routes
 app.use('/users', userRoutes);
-app.use('/mahiber', mahiberRoutes);
+app.use('/mahber', mahiberRoutes);
 app.use('/members', memberRoutes);
 app.use('/', authRoutes);
 

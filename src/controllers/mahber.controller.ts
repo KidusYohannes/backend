@@ -1,21 +1,22 @@
 import { Response } from 'express';
-import { createMahber, getMahbersByUser, getMahberById, updateMahber, deleteMahber } from '../services/mahber.service';
+import { createMahberWithContributionTerm, createMahber, getMahbersByUser, getMahberById, updateMahber, deleteMahber } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
-  if (!req.user) res.status(401).json({ message: 'Unauthorized' });
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
   try {
-    if(req.user !== null && req.user !== undefined) {
-        const mahiber = await createMahber({
-        ...req.body,
-        created_by: req.user.id
-        });
-        res.status(201).json(mahiber);
-    } else {
-        res.status(400).json({ message: 'User not authenticated' });
-    }
+    // Always use the authenticated user as the creator
+    const payload = {
+      ...req.body,
+      created_by: req.user.id
+    };
+    const { mahber, contributionTerm } = await createMahberWithContributionTerm(payload);
+    res.status(201).json({ mahber, contributionTerm });
   } catch (err: any) {
-    res.status(400).json({ message: err.message || 'Failed to create mahiber' });
+    res.status(400).json({ message: err.message || 'Failed to create mahber' });
   }
 };
 

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { sendEmail } from '../services/email.service';
 import {
   getAllUsers,
   getUserById,
@@ -6,38 +7,55 @@ import {
   updateUser,
   deleteUser,
   validateUserPassword,
-  findUserByEmail
+  findUserByEmail,
+  activateUser
 } from '../services/user.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
-  // Access authenticated user with req.user
-  // const currentUser = req.user;
-  // You can use currentUser to perform actions based on the authenticated user
-  // For example, you might want to log the current user's ID or role
-  // Example: const currentUser = req.user;
   const users = await getAllUsers();
   res.json(users);
 };
 
 export const getUser = async (req: Request, res: Response) => {
   const user = await getUserById(Number(req.params.id));
-  if (!user) res.status(404).json({ message: 'User not found' });
+  if (!user) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
   res.json(user);
 };
 
 export const addUser = async (req: Request, res: Response) => {
-  // Check if email already exists
   const existingUser = await findUserByEmail(req.body.email);
   if (existingUser) {
-     res.status(400).json({ message: 'Email already in use' });
+    res.status(400).json({ message: 'Email already in use' });
+    return;
   }
   try {
-    // Do not set id, let the database handle auto-increment
     const user = await createUser(req.body);
-    res.status(201).json(user);
+
+    // --- COMMENT OUT THIS BLOCK FOR LATER USE ---
+    /*
+    // Send verification email with link
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(user.link_token)}`;
+    await sendEmail(
+      user.email,
+      'Verify your Mahber account',
+      `Please verify your account by clicking the following link: ${verifyUrl}\n\nThis link will expire in 30 minutes.`
+    );
+    */
+
+    // --- USE THIS FOR NOW: SEND ONLY THE 6-CHAR TOKEN ---
+    await sendEmail(
+      user.email,
+      'Your Mahber verification code',
+      `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`
+    );
+
+    res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to create user' });
   }
@@ -45,19 +63,26 @@ export const addUser = async (req: Request, res: Response) => {
 
 export const editUser = async (req: Request, res: Response) => {
   const user = await updateUser(Number(req.params.id), req.body);
-  if (!user) res.status(404).json({ message: 'User not found' });
+  if (!user) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
   res.json(user);
 };
 
 export const removeUser = async (req: Request, res: Response) => {
   const deleted = await deleteUser(Number(req.params.id));
-  if (!deleted) res.status(404).json({ message: 'User not found' });
+  if (!deleted) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
   res.status(204).send();
 };
 
 export const getActiveUser = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: 'No active user' });
+    return;
   }
   res.json(req.user);
 };

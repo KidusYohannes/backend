@@ -1,105 +1,315 @@
 {
   "info": {
-    "name": "EdirConnectTS",
+    "name": "Mahber API",
     "_postman_id": "e7e8d5b2-1234-4bcd-9abc-1234567890ab",
-    "description": "Postman collection for EdirConnectTS user endpoints",
+    "description": "Postman collection for Mahber user, mahber, and member endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Register User",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"id\": 1,\n  \"full_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"1234567890\",\n  \"password\": \"password123\"\n}"
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"1234567890\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
+          }
         },
-        "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
-      }
-    },
-    {
-      "name": "Login",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+        {
+          "name": "Activate User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"token\": \"ABC123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/activate", "host": ["{{baseUrl}}"], "path": ["activate"] }
+          }
         },
-        "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] }
-      }
-    },
-    {
-      "name": "Get All Users",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-        ],
-        "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
-      }
-    },
-    {
-      "name": "Get User By ID",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/users/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["users", "1"]
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] }
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Update User",
-      "request": {
-        "method": "PUT",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
-          { "key": "Content-Type", "value": "application/json" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"phone\": \"0987654321\"\n}"
+      "name": "User Endpoints",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] }
+          }
         },
-        "url": {
-          "raw": "{{baseUrl}}/users/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["users", "1"]
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"phone\": \"0987654321\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Active User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
         }
-      }
+      ]
+
     },
     {
-      "name": "Delete User",
-      "request": {
-        "method": "DELETE",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/users/1",
-          "host": ["{{baseUrl}}"],
-          "path": ["users", "1"]
+      "name": "Mahber Endpoints",
+      "item": [
+        {
+          "name": "Create Mahber (with Contribution Term)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sample Mahber\",\n  \"desccription\": \"Sample Description\",\n  \"type\": \"Religious Group\",\n  \"contribution_frequency\": 1,\n  \"contribution_unit\": \"month\",\n  \"effective_from\": \"2025-10-01\",\n  \"contribution_amount\": 50,\n  \"affiliation\": \"None\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/mahber", "host": ["{{baseUrl}}"], "path": ["mahiber"] }
+          }
+        },
+        {
+          "name": "Get My Mahbers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": { "raw": "{{baseUrl}}/mahber", "host": ["{{baseUrl}}"], "path": ["mahiber"] }
+          }
+        },
+        {
+          "name": "Get Mahber By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mahber/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mahiber", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Mahber",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Mahber Name\",\n  \"desccription\": \"Updated Description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mahber/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mahiber", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Mahber",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mahber/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["mahiber", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Mahber Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/mahber/1/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["mahiber", "1", "members"]
+            }
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Get Active User",
-      "request": {
-        "method": "GET",
-        "header": [
-          { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/users/me",
-          "host": ["{{baseUrl}}"],
-          "path": ["users", "me"]
+      "name": "Member Endpoints",
+      "description": "Endpoints for managing members of a Mahber",
+      "item": [
+        {
+          "name": "Request to Join Mahber",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/request", "host": ["{{baseUrl}}"], "path": ["members", "request"] }
+          }
+        },
+        {
+          "name": "Invite Member to Mahber",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/invite", "host": ["{{baseUrl}}"], "path": ["members", "invite"] }
+          }
+        },
+        {
+          "name": "Respond to Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"accept\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/invite/respond", "host": ["{{baseUrl}}"], "path": ["members", "invite", "respond"] }
+          }
+        },
+        {
+          "name": "Respond to Join Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\",\n  \"accept\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/request/respond", "host": ["{{baseUrl}}"], "path": ["members", "request", "respond"] }
+          }
+        },
+        {
+          "name": "Ban Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/ban", "host": ["{{baseUrl}}"], "path": ["members", "ban"] }
+          }
+        },
+        {
+          "name": "Unban Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/members/unban", "host": ["{{baseUrl}}"], "path": ["members", "unban"] }
+          }
         }
-      }
+      ]
     }
   ],
   "variable": [

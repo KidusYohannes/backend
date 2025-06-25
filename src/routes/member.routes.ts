@@ -4,7 +4,6 @@ import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.get('/mahbers', authenticateToken, memberController.getAllMahbers);
 router.post('/request', authenticateToken, memberController.requestToJoin);
 router.post('/invite', authenticateToken, memberController.inviteMember);
 router.post('/invite/respond', authenticateToken, memberController.respondToInvite);

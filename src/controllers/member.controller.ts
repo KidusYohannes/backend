@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import * as memberService from '../services/member.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { Member } from '../models/member.model';
 
 export const getAllMahbers = async (_req: AuthenticatedRequest, res: Response) => {
   const mahbers = await memberService.getAllMahbers();
@@ -56,6 +57,16 @@ export const unbanMember = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const member = await memberService.unbanMember(req.user!.id.toString(), req.body.edir_id, req.body.user_id);
     res.json(member);
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+export const getMahberMembers = async (req: AuthenticatedRequest, res: Response) => {
+  const mahberId = req.params.id;
+  try {
+    const members = await Member.findAll({ where: { edir_id: mahberId } });
+    res.json(members);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }

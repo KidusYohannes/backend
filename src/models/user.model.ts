@@ -1,5 +1,8 @@
-export interface User {
-  id: number;
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../config/db';
+
+interface UserAttributes {
+  id?: number;
   full_name: string;
   email: string;
   phone: string;
@@ -9,5 +12,19 @@ export interface User {
   profile?: string;
   status?: string;
   is_agreed_to_terms?: string;
-  last_access?: string;
+  last_access?: string; // ISO string or Date
+}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}  
+export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
+  public id!: number;
+  public full_name!: string;
+  public email!: string;
+  public phone!: string;
+  public password!: string;
+  public link_token?: string;
+  public token_expiration?: string;
+  public profile?: string;
+  public status?: string;
+  public is_agreed_to_terms?: string;
+  public last_access?: string; // ISO string or Date
 }

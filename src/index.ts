@@ -2,6 +2,7 @@ import app from './app';
 import path from 'path';
 import fs from 'fs';
 
+
 // Use process.cwd() to ensure logs are always in the project root, regardless of how the app is started
 const logDir = path.join(process.cwd(), 'logs');
 const logFile = path.join(logDir, 'app.log');
@@ -17,7 +18,7 @@ const logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
 // Home page route
 app.get('/', (req, res) => {
-  res.send('Welcome to EdirConnect!');
+  res.send('Welcome to Mahber!');
 });
 
 const PORT = process.env.PORT || 3000;

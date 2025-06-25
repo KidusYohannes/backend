@@ -1,18 +1,25 @@
 import { User } from '../models/user.model';
-import pool from '../config/db';
+import { Op } from 'sequelize';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import { User as UserModel } from '../models/user.model'; // If you have a Sequelize User model
 
 // In-memory users array for demonstration
 let users: User[] = [];
 
+function generateToken(length = 6): string {
+  // Generates a 6-character alphanumeric token
+  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase();
+}
+
 export const getAllUsers = async (): Promise<User[]> => {
-  const result = await pool.query('SELECT * FROM users');
-  return result.rows;
+  const users = await UserModel.findAll();
+  return users.map(u => u.toJSON() as User);
 };
 
 export const getUserById = async (id: number): Promise<User | undefined> => {
-  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-  return result.rows[0];
+  const user = await UserModel.findByPk(id);
+  return user ? (user.toJSON() as User) : undefined;
 };
 
 export const createUser = async (user: User): Promise<User> => {
@@ -23,72 +30,36 @@ export const createUser = async (user: User): Promise<User> => {
   }
 
   const hashedPassword = await bcrypt.hash(user.password, 10);
-  const result = await pool.query(
-    `INSERT INTO users 
-      (full_name, email, phone, password, link_token, token_expiration, profile, status, is_agreed_to_terms, last_access)
-     VALUES 
-      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     RETURNING *`,
-    [
-      user.full_name,
-      user.email,
-      user.phone,
-      hashedPassword,
-      user.link_token,
-      user.token_expiration,
-      user.profile,
-      user.status ?? 'new',
-      user.is_agreed_to_terms,
-      user.last_access
-    ]
-  );
-  return result.rows[0];
+  const linkToken = generateToken(16);
+  const tokenExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+
+  const createdUser = await UserModel.create({
+    ...user,
+    password: hashedPassword,
+    link_token: linkToken,
+    token_expiration: tokenExpiration.toISOString(),
+    status: 'inactive'
+  });
+  return createdUser.toJSON() as User;
 };
 
 export const updateUser = async (id: number, updated: Partial<User>): Promise<User | undefined> => {
-  // For brevity, only updating a subset of fields. Expand as needed.
-  const result = await pool.query(
-    `UPDATE users SET
-      full_name = COALESCE($1, full_name),
-      email = COALESCE($2, email),
-      phone = COALESCE($3, phone),
-      password = COALESCE($4, password),
-      link_token = COALESCE($5, link_token),
-      token_expiration = COALESCE($6, token_expiration),
-      profile = COALESCE($7, profile),
-      status = COALESCE($8, status),
-      is_agreed_to_terms = COALESCE($9, is_agreed_to_terms),
-      last_access = COALESCE($10, last_access)
-     WHERE id = $11
-     RETURNING *`,
-    [
-      updated.full_name,
-      updated.email,
-      updated.phone,
-      updated.password,
-      updated.link_token,
-      updated.token_expiration,
-      updated.profile,
-      updated.status,
-      updated.is_agreed_to_terms,
-      updated.last_access,
-      id
-    ]
-  );
-  return result.rows[0];
+  const user = await UserModel.findByPk(id);
+  if (!user) return undefined;
+  await user.update(updated);
+  return user.toJSON() as User;
 };
 
 export const deleteUser = async (id: number): Promise<boolean> => {
-  const result = await pool.query(
-    'UPDATE users SET status = $1 WHERE id = $2 RETURNING *',
-    ['inactive', id]
-  );
-  return (result.rowCount ?? 0) > 0;
+  const user = await UserModel.findByPk(id);
+  if (!user) return false;
+  await user.update({ status: 'inactive' });
+  return true;
 };
 
 export const findUserByEmail = async (email: string): Promise<User | undefined> => {
-  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-  return result.rows[0];
+  const user = await UserModel.findOne({ where: { email } });
+  return user ? (user.toJSON() as User) : undefined;
 };
 
 export const validateUserPassword = async (email: string, password: string): Promise<User | null> => {
@@ -97,4 +68,19 @@ export const validateUserPassword = async (email: string, password: string): Pro
     return user;
   }
   return null;
+};
+
+export const activateUser = async (email: string, token: string): Promise<boolean> => {
+  const [count] = await UserModel.update(
+    { status: 'active', link_token: undefined, token_expiration: undefined },
+    {
+      where: {
+        email,
+        link_token: token,
+        token_expiration: { [Op.gt]: new Date() },
+        status: 'inactive'
+      }
+    }
+  );
+  return count > 0;
 };

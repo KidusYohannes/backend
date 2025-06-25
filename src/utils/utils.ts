@@ -1,5 +1,5 @@
-import { add, isBefore, parseISO } from 'date-fns';
-
+import { add, isBefore, parseISO, differenceInDays, differenceInWeeks, differenceInMonths, differenceInYears } from 'date-fns';
+import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 type TimeUnit = 'day' | 'week' | 'month' | 'year';
 
 interface PeriodConfig {
@@ -112,4 +112,47 @@ export function getPeriodNumber(startDate: string, frequency: number, unit: Time
     referenceDate
   });
   return periodNumber;
+}
+
+
+function calculatePeriods(start: Date, end: Date, unit: string, frequency: number): number {
+  switch (unit) {
+    case 'day':
+      return Math.floor(differenceInDays(end, start) / frequency);
+    case 'week':
+      return Math.floor(differenceInWeeks(end, start) / frequency);
+    case 'month':
+      return Math.floor(differenceInMonths(end, start) / frequency);
+    case 'year':
+      return Math.floor(differenceInYears(end, start) / frequency);
+    default:
+      throw new Error(`Unsupported unit: ${unit}`);
+  }
+}
+
+export async function getCurrentPeriodNumber(mahber_id: number): Promise<number> {
+  const terms = await MahberContributionTerm.findAll({
+    where: { mahber_id },
+    order: [['effective_from', 'ASC']]
+  });
+
+  if (terms.length === 0) throw new Error('No contribution terms found for this Mahber');
+
+  let totalPeriods = 0;
+  const now = new Date();
+
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
+    const nextTerm = terms[i + 1];
+    const termStart = new Date(term.effective_from);
+    const termEnd = nextTerm ? new Date(nextTerm.effective_from) : now;
+
+    // Only count periods if termStart is before now
+    if (termStart >= now) break;
+
+    const periodCount = calculatePeriods(termStart, termEnd, term.unit, term.frequency);
+    totalPeriods += periodCount;
+  }
+
+  return totalPeriods;
 }
