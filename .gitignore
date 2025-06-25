@@ -3,3 +3,4 @@ logs/
 dist/
 .env
 *.log
+src/config/db.ts
