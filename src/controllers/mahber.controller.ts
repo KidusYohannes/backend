@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import { createMahberWithContributionTerm, createMahber, getMahbersByUser, getMahberById, updateMahber, deleteMahber } from '../services/mahber.service';
+import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber } from '../services/mahber.service';
+import { Member } from '../models/member.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
@@ -14,6 +15,15 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       created_by: req.user.id
     };
     const { mahber, contributionTerm } = await createMahberWithContributionTerm(payload);
+
+    // Add creator as first member with admin role
+    await Member.create({
+      member_id: String(req.user.id),
+      edir_id: (mahber.id).toString(),
+      role: 'admin',
+      status: 'accepted'
+    });
+
     res.status(201).json({ mahber, contributionTerm });
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to create mahber' });
