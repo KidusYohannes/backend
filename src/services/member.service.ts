@@ -30,7 +30,7 @@ export const inviteMember = async (adminId: string, edirId: string, userId: stri
   try {
     return Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
   } catch (error) {
-    console
+    console.log('Error inviting member:', error);
     throw new Error('Failed to invite member');
   }
 };
