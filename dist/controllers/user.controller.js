@@ -10,7 +10,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getActiveUser = exports.removeUser = exports.editUser = exports.addUser = exports.getUser = exports.getUsers = void 0;
-const email_service_1 = require("../services/email.service");
 const user_service_1 = require("../services/user.service");
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const getUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -46,8 +45,13 @@ const addUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         );
         */
         // --- USE THIS FOR NOW: SEND ONLY THE 6-CHAR TOKEN ---
-        yield (0, email_service_1.sendEmail)(user.email, 'Your Mahber verification code', `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`);
-        res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
+        // await sendEmail(
+        //   user.email,
+        //   'Your Mahber verification code',
+        //   `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`
+        // );
+        //res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
+        res.status(201).json({ message: 'User registered. Please login.' });
     }
     catch (err) {
         res.status(400).json({ message: err.message || 'Failed to create user' });

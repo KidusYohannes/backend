@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.removeMahiber = exports.editMahiber = exports.getMahiber = exports.getMyMahibers = exports.addMahiber = void 0;
 const mahber_service_1 = require("../services/mahber.service");
+const member_model_1 = require("../models/member.model");
 const addMahiber = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     if (!req.user) {
         res.status(401).json({ message: 'Unauthorized' });
@@ -20,6 +21,13 @@ const addMahiber = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         // Always use the authenticated user as the creator
         const payload = Object.assign(Object.assign({}, req.body), { created_by: req.user.id });
         const { mahber, contributionTerm } = yield (0, mahber_service_1.createMahberWithContributionTerm)(payload);
+        // Add creator as first member with admin role
+        yield member_model_1.Member.create({
+            member_id: String(req.user.id),
+            edir_id: (mahber.id).toString(),
+            role: 'admin',
+            status: 'accepted'
+        });
         res.status(201).json({ mahber, contributionTerm });
     }
     catch (err) {

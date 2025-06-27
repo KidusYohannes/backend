@@ -41,7 +41,13 @@ const inviteMember = (adminId, edirId, userId) => __awaiter(void 0, void 0, void
     const existing = yield member_model_1.Member.findOne({ where: { member_id: userId, status: 'accepted' } });
     if (existing)
         throw new Error('User already in a mahber');
-    return member_model_1.Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited' });
+    try {
+        return member_model_1.Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
+    }
+    catch (error) {
+        console.log('Error inviting member:', error);
+        throw new Error('Failed to invite member');
+    }
 });
 exports.inviteMember = inviteMember;
 function createMemberContributionOnAccept(edirId, userId) {

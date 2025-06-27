@@ -42,7 +42,7 @@ const createUser = (user) => __awaiter(void 0, void 0, void 0, function* () {
     const hashedPassword = yield bcrypt_1.default.hash(user.password, 10);
     const linkToken = generateToken(16);
     const tokenExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
-    const createdUser = yield user_model_1.User.create(Object.assign(Object.assign({}, user), { password: hashedPassword, link_token: linkToken, token_expiration: tokenExpiration.toISOString(), status: 'inactive' }));
+    const createdUser = yield user_model_1.User.create(Object.assign(Object.assign({}, user), { password: hashedPassword, link_token: linkToken, token_expiration: tokenExpiration.toISOString(), status: 'active' }));
     return createdUser.toJSON();
 });
 exports.createUser = createUser;

@@ -24,14 +24,14 @@ export const inviteMember = async (adminId: string, edirId: string, userId: stri
   // Only admin can invite
   const admin = await Member.findOne({ where: { member_id: adminId, edir_id: edirId, role: 'admin', status: 'accepted' } });
   if (!admin) throw new Error('Only admin can invite');
+  try {
   // Check if user is already in a mahber
   const existing = await Member.findOne({ where: { member_id: userId, status: 'accepted' } });
   if (existing) throw new Error('User already in a mahber');
-  try {
     return Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
   } catch (error) {
     console.log('Error inviting member:', error);
-    throw new Error('Failed to invite member');
+    throw error;
   }
 };
 
@@ -64,7 +64,7 @@ async function createMemberContributionOnAccept(edirId: string, userId: string) 
     contribution_term_id: term.id,
     amount_due: term.amount,
     amount_paid: 0,
-    status: 'pending',
+    status: 'unpaid',
     period_start_date: term.effective_from
   });
 }
