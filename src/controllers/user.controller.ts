@@ -49,13 +49,14 @@ export const addUser = async (req: Request, res: Response) => {
     */
 
     // --- USE THIS FOR NOW: SEND ONLY THE 6-CHAR TOKEN ---
-    await sendEmail(
-      user.email,
-      'Your Mahber verification code',
-      `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`
-    );
+    // await sendEmail(
+    //   user.email,
+    //   'Your Mahber verification code',
+    //   `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`
+    // );
 
-    res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
+    //res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
+    res.status(201).json({ message: 'User registered. Please login.' });
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to create user' });
   }

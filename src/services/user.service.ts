@@ -38,7 +38,7 @@ export const createUser = async (user: User): Promise<User> => {
     password: hashedPassword,
     link_token: linkToken,
     token_expiration: tokenExpiration.toISOString(),
-    status: 'inactive'
+    status: 'active'
   });
   return createdUser.toJSON() as User;
 };
