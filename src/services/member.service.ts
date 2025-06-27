@@ -27,7 +27,12 @@ export const inviteMember = async (adminId: string, edirId: string, userId: stri
   // Check if user is already in a mahber
   const existing = await Member.findOne({ where: { member_id: userId, status: 'accepted' } });
   if (existing) throw new Error('User already in a mahber');
-  return Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
+  try {
+    return Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
+  } catch (error) {
+    console
+    throw new Error('Failed to invite member');
+  }
 };
 
 async function createMemberContributionOnAccept(edirId: string, userId: string) {
