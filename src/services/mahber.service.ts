@@ -69,11 +69,11 @@ export const getJoinedMahbers = async (userId: number): Promise<Mahber[]> => {
         )`)
       }
     },
-    attributes: [
-      'id', 'name', 'type', 'affiliation',
-      'contribution_unit', 'contribution_frequency',
-      'contribution_amount', 'contribution_start_date'
-    ]
+    // attributes: [
+    //   'id', 'name', 'type', 'affiliation',
+    //   'contribution_unit', 'contribution_frequency',
+    //   'contribution_amount', 'contribution_start_date'
+    // ]
   });
   console.log('Joined mahbers:', mahbers);
   return mahbers.map(m => m.toJSON() as Mahber);
