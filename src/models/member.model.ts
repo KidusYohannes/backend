@@ -24,8 +24,8 @@ export class Member extends Model<MemberAttributes, MemberCreationAttributes> im
 Member.init(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-    member_id: { type: DataTypes.INTEGER, allowNull: false },
-    edir_id: { type: DataTypes.INTEGER, allowNull: false },
+    member_id: { type: DataTypes.STRING, allowNull: false },
+    edir_id: { type: DataTypes.STRING, allowNull: false },
     role: { type: DataTypes.STRING, allowNull: false },
     invite_link: { type: DataTypes.STRING },
     status: { type: DataTypes.STRING, allowNull: false }

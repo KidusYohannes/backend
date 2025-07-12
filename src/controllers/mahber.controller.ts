@@ -1,6 +1,7 @@
-import { Response } from 'express';
-import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber } from '../services/mahber.service';
+import { Response, Request } from 'express';
+import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers } from '../services/mahber.service';
 import { Member } from '../models/member.model';
+import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
@@ -37,6 +38,26 @@ export const getMyMahibers = async (req: AuthenticatedRequest, res: Response) =>
         const mahibers = await getMahbersByUser(req.user.id);
         res.json(mahibers);
     }
+};
+
+export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  console.log('Fetching joined mahbers for user:', req.user.id);
+  const mahbers = await getJoinedMahbers(req.user.id);
+  console.log('Joined mahbers:', mahbers);
+  res.json(mahbers);
+};
+
+export const getMahbers = async (req: Request, res: Response) => {
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+
+  const result = await getAllMahbers(search, page, perPage);
+  res.json(result);
 };
 
 export const getMahiber = async (req: AuthenticatedRequest, res: Response) => {

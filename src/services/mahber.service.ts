@@ -1,6 +1,8 @@
 import { Mahber } from '../models/mahber.model';
+import { Member } from '../models/member.model';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 import sequelize from '../config/db';
+import { Op } from 'sequelize';
 
 export const createMahber = async (mahber: Omit<Mahber, 'id' | 'created_at' | 'updated_at'>): Promise<Mahber> => {
   const created = await Mahber.create(mahber);
@@ -56,10 +58,65 @@ export const getMahbersByUser = async (userId: number): Promise<Mahber[]> => {
   return mahbers.map(m => m.toJSON() as Mahber);
 };
 
+export const getJoinedMahbers = async (userId: number): Promise<Mahber[]> => {
+  // Use a subquery to fetch Mahbers where the user is an accepted member
+  const user_id = String(userId);
+  const mahbers = await Mahber.findAll({
+    where: {
+      id: {
+        [Op.in]: sequelize.literal(`(
+          SELECT edir_id::int FROM members WHERE member_id = '${user_id}' AND status = 'accepted'
+        )`)
+      }
+    },
+    attributes: [
+      'id', 'name', 'type', 'affiliation',
+      'contribution_unit', 'contribution_frequency',
+      'contribution_amount', 'contribution_start_date'
+    ]
+  });
+  console.log('Joined mahbers:', mahbers);
+  return mahbers.map(m => m.toJSON() as Mahber);
+};
+
 export const getMahberById = async (id: number): Promise<Mahber | undefined> => {
   const mahber = await Mahber.findByPk(id);
   return mahber ? (mahber.toJSON() as Mahber) : undefined;
 };
+
+export const getAllMahbers = async (
+  search: string = '',
+  page: number = 1,
+  perPage: number = 10
+): Promise<{ data: Mahber[]; total: number; page: number; perPage: number }> => {
+  const where: any = {};
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { desccription: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } }
+      // Add more fields as needed for global search
+    ];
+  }
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+
+  return {
+    data: rows.map(m => m.toJSON() as Mahber),
+    total: count,
+    page,
+    perPage
+  };
+}
 
 export const updateMahber = async (id: number, updated: Partial<Mahber>, userId: number): Promise<Mahber | undefined> => {
   const mahber = await Mahber.findOne({ where: { id, created_by: userId } });
