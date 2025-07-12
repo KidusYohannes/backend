@@ -47,13 +47,15 @@ Mahber.init(
     contribution_amount: { type: DataTypes.STRING },
     contribution_start_date: { type: DataTypes.DATEONLY },
     affiliation: { type: DataTypes.STRING },
-    created_at: { type: DataTypes.DATE },
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_by: { type: DataTypes.INTEGER },
-    updated_at: { type: DataTypes.DATE }
+    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
   },
   {
     sequelize,
     tableName: 'mahber',
-    timestamps: false
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   }
 );

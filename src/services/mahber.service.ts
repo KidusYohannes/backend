@@ -12,6 +12,7 @@ export const createMahber = async (mahber: Omit<Mahber, 'id' | 'created_at' | 'u
 // Accepts a single payload with both Mahber and initial contribution term data
 export const createMahberWithContributionTerm = async (payload: any) => {
   return await sequelize.transaction(async (t) => {
+    const now = new Date();
     // Extract Mahber fields
     const mahberFields = {
       name: payload.name,
@@ -22,7 +23,9 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       contribution_frequency: payload.contribution_frequency,
       contribution_amount: payload.contribution_amount,
       contribution_start_date: payload.effective_from,
-      affiliation: payload.affiliation
+      affiliation: payload.affiliation,
+      created_at: now,
+      updated_at: now
     };
 
     // Create Mahber
@@ -121,7 +124,11 @@ export const getAllMahbers = async (
 export const updateMahber = async (id: number, updated: Partial<Mahber>, userId: number): Promise<Mahber | undefined> => {
   const mahber = await Mahber.findOne({ where: { id, created_by: userId } });
   if (!mahber) return undefined;
-  await mahber.update(updated);
+  await mahber.update({
+    ...updated,
+    updated_by: userId,
+    updated_at: new Date()
+  });
   return mahber.toJSON() as Mahber;
 };
 
