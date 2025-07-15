@@ -9,6 +9,7 @@ interface UserAttributes {
   password: string;
   link_token?: string;
   token_expiration?: string;
+  stripe_id?: string;
   profile?: string;
   status?: string;
   is_agreed_to_terms?: string;
@@ -24,6 +25,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public password!: string;
   public link_token?: string;
   public token_expiration?: string;
+  public stripe_id?: string;
   public profile?: string;
   public status?: string;
   public is_agreed_to_terms?: string;
@@ -39,6 +41,7 @@ User.init(
     password: { type: DataTypes.STRING, allowNull: false },
     link_token: { type: DataTypes.STRING },
     token_expiration: { type: DataTypes.DATE },
+    stripe_id: { type: DataTypes.STRING },
     profile: { type: DataTypes.STRING },
     status: { type: DataTypes.STRING },
     is_agreed_to_terms: { type: DataTypes.STRING },

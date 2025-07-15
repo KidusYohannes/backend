@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import Stripe from 'stripe';
 import {
   validateUserPassword,
   findUserByEmail,
-  activateUser
+  activateUser,
+  updateUser
 } from '../services/user.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -15,6 +18,18 @@ export const login = async (req: Request, res: Response) => {
     res.status(401).json({ message: 'Invalid credentials' });
     return;
   }
+
+  // Check and create Stripe customer if not present
+  if (!user.stripe_id) {
+    const stripeCustomer = await stripe.customers.create({
+      email: user.email,
+      name: user.full_name,
+      phone: user.phone
+    });
+    await updateUser(user.id, { stripe_id: stripeCustomer.id });
+    user.stripe_id = stripeCustomer.id;
+  }
+
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
   res.json({ token });
 };

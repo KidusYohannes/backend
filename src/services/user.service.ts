@@ -3,9 +3,14 @@ import { Op } from 'sequelize';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { User as UserModel } from '../models/user.model'; // If you have a Sequelize User model
+import Stripe from 'stripe';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // In-memory users array for demonstration
 let users: User[] = [];
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 function generateToken(length = 6): string {
   // Generates a 6-character alphanumeric token
@@ -33,12 +38,20 @@ export const createUser = async (user: User): Promise<User> => {
   const linkToken = generateToken(16);
   const tokenExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
 
+  // Create Stripe customer
+  const stripeCustomer = await stripe.customers.create({
+    email: user.email,
+    name: user.full_name,
+    phone: user.phone
+  });
+
   const createdUser = await UserModel.create({
     ...user,
     password: hashedPassword,
     link_token: linkToken,
     token_expiration: tokenExpiration.toISOString(),
-    status: 'active'
+    status: 'active',
+    stripe_id: stripeCustomer.id // Save Stripe customer ID
   });
   return createdUser.toJSON() as User;
 };
