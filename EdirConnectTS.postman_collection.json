@@ -137,7 +137,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Sample Mahber\",\n  \"desccription\": \"Sample Description\",\n  \"type\": \"Religious Group\",\n  \"contribution_frequency\": 1,\n  \"contribution_unit\": \"month\",\n  \"effective_from\": \"2025-10-01\",\n  \"contribution_amount\": 50,\n  \"affiliation\": \"None\"\n}"
+              "raw": "{\n  \"name\": \"Sample Mahber\",\n  \"description\": \"Sample Description\",\n  \"type\": \"Religious Group\",\n  \"contribution_frequency\": 1,\n  \"contribution_unit\": \"month\",\n  \"effective_from\": \"2025-10-01\",\n  \"contribution_amount\": 50,\n  \"affiliation\": \"None\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/mahber", "host": ["{{baseUrl}}"], "path": ["mahiber"] }
           }
@@ -176,7 +176,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Mahber Name\",\n  \"desccription\": \"Updated Description\"\n}"
+              "raw": "{\n  \"name\": \"Updated Mahber Name\",\n  \"description\": \"Updated Description\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/mahber/1",

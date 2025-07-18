@@ -5,7 +5,8 @@ interface MahberAttributes {
   id: number;
   name: string;
   created_by: number;
-  desccription?: string;
+  description?: string;
+  stripe_account_id: string;
   type?: string;
   contribution_unit?: string; // was contribution_period
   contribution_frequency?: string; // new column
@@ -23,7 +24,8 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public id!: number;
   public name!: string;
   public created_by!: number;
-  public desccription?: string;
+  public description?: string;
+  public stripe_account_id!: string; // new column for Stripe account ID
   public type?: string;
   public contribution_unit?: string; // was contribution_period
   public contribution_frequency?: string; // new column
@@ -40,7 +42,8 @@ Mahber.init(
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     name: { type: DataTypes.STRING, allowNull: false },
     created_by: { type: DataTypes.INTEGER, allowNull: false },
-    desccription: { type: DataTypes.STRING },
+    description: { type: DataTypes.STRING },
+    stripe_account_id: { type: DataTypes.STRING, allowNull: false }, // new column for Stripe account ID
     type: { type: DataTypes.STRING },
     contribution_unit: { type: DataTypes.STRING },
     contribution_frequency: { type: DataTypes.STRING },

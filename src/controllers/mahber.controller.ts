@@ -3,6 +3,12 @@ import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, upda
 import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import Stripe from 'stripe';
+import dotenv from 'dotenv';
+import { getUserById } from '../services/user.service';
+dotenv.config();
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
@@ -108,3 +114,34 @@ export const removeMahiber = async (req: AuthenticatedRequest, res: Response) =>
   }
   res.status(204).send();
 };
+
+export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const mahberId = Number(req.params.id);
+  const mahber = await getMahberById(mahberId);
+  if (!mahber) {
+    res.status(404).json({ message: 'Mahber not found' });
+    return;
+  }
+  const user = await getUserById(Number(mahber.created_by));
+  const account = await stripe.accounts.create({
+      type: "express",
+      country: "US", // or ET if Ethiopia is supported
+      email: user?.email,
+      capabilities: {
+        transfers: { requested: true },
+      },
+  });
+  mahber.stripe_account_id = account.id;
+  await mahber.save();
+
+  const accountLink = await stripe.accountLinks.create({
+    account: mahber.stripe_account_id,
+    refresh_url: "https://yourapp.com/stripe/refresh",
+    return_url: "https://yourapp.com/stripe/return",
+    type: "account_onboarding",
+  });
+}

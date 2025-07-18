@@ -17,7 +17,8 @@ export const createMahberWithContributionTerm = async (payload: any) => {
     const mahberFields = {
       name: payload.name,
       created_by: payload.created_by,
-      desccription: payload.desccription,
+      description: payload.description,
+      stripe_account_id: '',
       type: payload.type,
       contribution_unit: payload.contribution_unit,
       contribution_frequency: payload.contribution_frequency,
@@ -97,7 +98,7 @@ export const getAllMahbers = async (
   if (search) {
     where[Op.or] = [
       { name: { [Op.iLike]: `%${search}%` } },
-      { desccription: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
       { type: { [Op.iLike]: `%${search}%` } },
       { affiliation: { [Op.iLike]: `%${search}%` } }
       // Add more fields as needed for global search

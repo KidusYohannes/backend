@@ -12,7 +12,7 @@ export const getAllMahbers = async () => {
 
 export const requestToJoinMahber = async (userId: string, edirId: string) => {
   // Check if user is already in a mahber
-  const existing = await Member.findOne({ where: { member_id: userId, status: 'accepted' } });
+  const existing = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'accepted' } });
   if (existing) throw new Error('User already in a mahber');
   // Check if already requested
   const pending = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'requested' } });
@@ -26,7 +26,7 @@ export const inviteMember = async (adminId: string, edirId: string, userId: stri
   if (!admin) throw new Error('Only admin can invite');
   try {
   // Check if user is already in a mahber
-  const existing = await Member.findOne({ where: { member_id: userId, status: 'accepted' } });
+  const existing = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'accepted' } });
   if (existing) throw new Error('User already in a mahber');
     return Member.create({ member_id: userId, edir_id: edirId, role: 'member', status: 'invited', invite_link: '' });
   } catch (error) {
