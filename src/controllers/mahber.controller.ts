@@ -126,6 +126,10 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     res.status(404).json({ message: 'Mahber not found' });
     return;
   }
+  if (!mahber || mahber.created_by !== req.user.id) {
+    res.status(404).json({ message: 'Mahiber not found or not authorized' });
+    return;
+  }
   const user = await getUserById(Number(mahber.created_by));
   const account = await stripe.accounts.create({
       type: "express",
@@ -136,7 +140,9 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
       },
   });
   mahber.stripe_account_id = account.id;
-  await mahber.save();
+
+  const updated = await updateMahber(Number(req.params.id), mahber, req.user.id);
+  // await mahber.save();
 
   const accountLink = await stripe.accountLinks.create({
     account: mahber.stripe_account_id,
@@ -144,4 +150,7 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     return_url: "https://yourapp.com/stripe/return",
     type: "account_onboarding",
   });
+  res.json({
+    accountLinkUrl: accountLink.url
+  }); 
 }
