@@ -146,8 +146,8 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
 
   const accountLink = await stripe.accountLinks.create({
     account: mahber.stripe_account_id,
-    refresh_url: "https://yourapp.com/stripe/refresh",
-    return_url: "https://yourapp.com/stripe/return",
+    refresh_url: "https://yenetech.com/stripe/refresh",
+    return_url: "https://yenetech.com/stripe/return",
     type: "account_onboarding",
   });
   res.json({

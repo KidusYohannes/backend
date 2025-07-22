@@ -3,6 +3,7 @@ import userRoutes from './routes/user.routes';
 import mahiberRoutes from './routes/mahber.routes';
 import memberRoutes from './routes/member.routes';
 import authRoutes from './routes/auth.routes';
+import paymentRoutes from './routes/payment.routes';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -32,6 +33,7 @@ app.use(express.json());
 app.use('/users', userRoutes);
 app.use('/mahber', mahiberRoutes);
 app.use('/members', memberRoutes);
+app.use('/payments', paymentRoutes);
 app.use('/', authRoutes);
 
 // Error handler to avoid leaking stack traces
