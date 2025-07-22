@@ -94,7 +94,9 @@ export const createPaymentIntent = async (req: AuthenticatedRequest, res: Respon
     const paymentIntent = await stripe.paymentIntents.create({
       amount: req.body.amount, // Amount in cents
       currency: 'usd', // Change to your desired currency
-      payment_method_types: req.body.payment_method_types || ['card'],
+      payment_method_types: Array.isArray(req.body.payment_method_types) && req.body.payment_method_types.length > 0
+        ? req.body.payment_method_types
+        : ['card'],
       customer: user.stripe_id, // Use the authenticated user's Stripe customer ID
       description: req.body.description || 'Mahber Contribution',
       transfer_data: {
