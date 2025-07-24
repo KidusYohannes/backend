@@ -113,9 +113,18 @@ async function getMemberStatusCounts(mahberIds: number[]): Promise<Record<number
   return result;
 }
 
+function castMahberContributionAmount<T extends { contribution_amount?: any }>(mahber: T): T {
+  return {
+    ...mahber,
+    contribution_amount: mahber.contribution_amount !== undefined && mahber.contribution_amount !== null
+      ? Number(mahber.contribution_amount)
+      : 0
+  };
+}
+
 export const getMahbersByUser = async (userId: number): Promise<any[]> => {
   const mahbers = await Mahber.findAll({ where: { created_by: userId } });
-  const mahberList = mahbers.map(m => m.toJSON() as Mahber);
+  const mahberList = mahbers.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
   return mahberList.map(m => ({
     ...m,
@@ -140,7 +149,7 @@ export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
     where: { id: { [Op.in]: mahberIds } }
   });
 
-  const mahberList = mahbers.map(m => m.toJSON() as Mahber);
+  const mahberList = mahbers.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
 
   // Map status from member to mahber in the response
@@ -156,7 +165,7 @@ export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
 
 export const getMahberById = async (id: number): Promise<Mahber | undefined> => {
   const mahber = await Mahber.findByPk(id);
-  return mahber ? (mahber.toJSON() as Mahber) : undefined;
+  return mahber ? castMahberContributionAmount(mahber.toJSON() as Mahber) : undefined;
 };
 
 export const getAllMahbers = async (
@@ -189,7 +198,7 @@ export const getAllMahbers = async (
     order: [['id', 'DESC']]
   });
 
-  const mahberList = rows.map(m => m.toJSON() as Mahber);
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
   const data = mahberList.map(m => ({
     ...m,

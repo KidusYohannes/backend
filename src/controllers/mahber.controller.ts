@@ -74,8 +74,12 @@ export const getMahiber = async (req: AuthenticatedRequest, res: Response) => {
     return;
   }
   const mahiber = await getMahberById(Number(req.params.id));
-  if (!mahiber || mahiber.created_by !== req.user.id) {
+  if( !mahiber ) {
     res.status(404).json({ message: 'Mahiber not found' });
+    return;
+  }
+  if (mahiber.created_by !== req.user.id) {
+    res.status(404).json({ message: 'Unauthorized access: created_by'});
     return;
   }
 
