@@ -135,7 +135,7 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
         destination: mahber.stripe_account_id,
       },
       // If using a saved payment method, set off_session and confirm
-      ...(paymentMethodId ? { off_session: true, confirm: false } : {})
+      ...(paymentMethodId ? { off_session: false, confirm: false } : {})
     });
 
     res.json({ clientSecret: paymentIntent.client_secret, paymentMethods });
