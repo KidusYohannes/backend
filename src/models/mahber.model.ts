@@ -7,6 +7,7 @@ interface MahberAttributes {
   created_by: number;
   description?: string;
   stripe_account_id: string;
+  stripe_product_id?: string; // <-- add this line
   type?: string;
   contribution_unit?: string; // was contribution_period
   contribution_frequency?: string; // new column
@@ -16,6 +17,11 @@ interface MahberAttributes {
   created_at?: Date;
   updated_by?: number;
   updated_at?: Date;
+  country?: string;
+  state?: string;
+  city?: string;
+  address?: string;
+  zip_code?: string;
 }
 
 interface MahberCreationAttributes extends Optional<MahberAttributes, 'id'> {}
@@ -26,6 +32,7 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public created_by!: number;
   public description?: string;
   public stripe_account_id!: string; // new column for Stripe account ID
+  public stripe_product_id?: string; // <-- add this line
   public type?: string;
   public contribution_unit?: string; // was contribution_period
   public contribution_frequency?: string; // new column
@@ -35,6 +42,11 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public created_at?: Date;
   public updated_by?: number;
   public updated_at?: Date;
+  public country?: string;
+  public state?: string;
+  public city?: string;
+  public address?: string;
+  public zip_code?: string;
 }
 
 Mahber.init(
@@ -44,6 +56,7 @@ Mahber.init(
     created_by: { type: DataTypes.INTEGER, allowNull: false },
     description: { type: DataTypes.STRING },
     stripe_account_id: { type: DataTypes.STRING, allowNull: false }, // new column for Stripe account ID
+    stripe_product_id: { type: DataTypes.STRING }, // <-- add this line
     type: { type: DataTypes.STRING },
     contribution_unit: { type: DataTypes.STRING },
     contribution_frequency: { type: DataTypes.STRING },
@@ -52,7 +65,12 @@ Mahber.init(
     affiliation: { type: DataTypes.STRING },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_by: { type: DataTypes.INTEGER },
-    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    country: { type: DataTypes.STRING },
+    state: { type: DataTypes.STRING },
+    city: { type: DataTypes.STRING },
+    address: { type: DataTypes.STRING },
+    zip_code: { type: DataTypes.STRING }
   },
   {
     sequelize,

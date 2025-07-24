@@ -16,10 +16,14 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
     return;
   }
   try {
-    // Always use the authenticated user as the creator
     const payload = {
       ...req.body,
-      created_by: req.user.id
+      created_by: req.user.id,
+      country: req.body.country,
+      state: req.body.state,
+      city: req.body.city,
+      address: req.body.address,
+      zip_code: req.body.zip_code
     };
     const { mahber, contributionTerm } = await createMahberWithContributionTerm(payload);
 
@@ -51,9 +55,7 @@ export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
-  console.log('Fetching joined mahbers for user:', req.user.id);
   const mahbers = await getJoinedMahbers(req.user.id);
-  console.log('Joined mahbers:', mahbers);
   res.json(mahbers);
 };
 
@@ -76,7 +78,24 @@ export const getMahiber = async (req: AuthenticatedRequest, res: Response) => {
     res.status(404).json({ message: 'Mahiber not found' });
     return;
   }
-  res.json(mahiber);
+
+  // Get member counts by status
+  const [joined, invited, requested, rejected] = await Promise.all([
+    Member.count({ where: { edir_id: String(mahiber.id), status: 'accepted' } }),
+    Member.count({ where: { edir_id: String(mahiber.id), status: 'invited' } }),
+    Member.count({ where: { edir_id: String(mahiber.id), status: 'requested' } }),
+    Member.count({ where: { edir_id: String(mahiber.id), status: 'rejected' } }),
+  ]);
+
+  res.json({
+    ...mahiber,
+    memberCounts: {
+      joined,
+      invited,
+      requested,
+      rejected
+    }
+  });
 };
 
 export const editMahiber = async (req: AuthenticatedRequest, res: Response) => {
@@ -90,7 +109,14 @@ export const editMahiber = async (req: AuthenticatedRequest, res: Response) => {
     return;
   }
   try {
-    const updated = await updateMahber(Number(req.params.id), req.body, req.user.id);
+    const updated = await updateMahber(Number(req.params.id), {
+      ...req.body,
+      country: req.body.country,
+      state: req.body.state,
+      city: req.body.city,
+      address: req.body.address,
+      zip_code: req.body.zip_code
+    }, req.user.id);
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to update mahiber' });

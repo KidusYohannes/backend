@@ -7,7 +7,7 @@ interface MemberAttributes {
   edir_id: string;
   role: string;
   invite_link?: string;
-  status: string;
+  status: string; // status is required and not nullable in the model
 }
 
 interface MemberCreationAttributes extends Optional<MemberAttributes, 'id'> {}
@@ -36,3 +36,6 @@ Member.init(
     timestamps: false
   }
 );
+  //   timestamps: false
+  // }
+// );

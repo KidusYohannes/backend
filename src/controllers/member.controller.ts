@@ -2,6 +2,7 @@ import { Response } from 'express';
 import * as memberService from '../services/member.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Member } from '../models/member.model';
+import { User } from '../models/user.model';
 
 export const getAllMahbers = async (_req: AuthenticatedRequest, res: Response) => {
   const mahbers = await memberService.getAllMahbers();
@@ -65,8 +66,24 @@ export const unbanMember = async (req: AuthenticatedRequest, res: Response) => {
 export const getMahberMembers = async (req: AuthenticatedRequest, res: Response) => {
   const mahberId = req.params.id;
   try {
+    // Get all members for the mahber
     const members = await Member.findAll({ where: { edir_id: mahberId } });
-    res.json(members);
+
+    // Get user details for all member_ids
+    const userIds = members.map(m => m.member_id);
+    const users = await User.findAll({
+      where: { id: userIds },
+      attributes: ['id', 'full_name', 'email', 'phone', 'profile', 'status']
+    });
+    const userMap = new Map(users.map(u => [String(u.id), u]));
+
+    // Merge user info into member objects
+    const membersWithUser = members.map(m => ({
+      ...m.toJSON(),
+      user: userMap.get(m.member_id) || null
+    }));
+
+    res.json(membersWithUser);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }

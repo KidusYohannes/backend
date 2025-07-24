@@ -1,0 +1,341 @@
+{
+  "info": {
+    "name": "Mahber API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/user", "host": ["{{baseUrl}}"], "path": ["user"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"+1234567890\",\n  \"password\": \"Password123!\",\n  \"profile\": \"https://example.com/profile.jpg\",\n  \"is_agreed_to_terms\": \"true\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Activate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/activate", "host": ["{{baseUrl}}"], "path": ["auth", "activate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"token\": \"SAMPLETOKEN123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/user", "host": ["{{baseUrl}}"], "path": ["user"] }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/user/1", "host": ["{{baseUrl}}"], "path": ["user", "1"] }
+          }
+        },
+        {
+          "name": "Edit User",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/user/1", "host": ["{{baseUrl}}"], "path": ["user", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"phone\": \"+1987654321\",\n  \"profile\": \"https://example.com/newprofile.jpg\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mahber",
+      "item": [
+        {
+          "name": "Create Mahber",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/mahber", "host": ["{{baseUrl}}"], "path": ["mahber"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sample Mahber\",\n  \"description\": \"A sample Mahber for testing.\",\n  \"type\": \"edir\",\n  \"contribution_unit\": \"month\",\n  \"contribution_frequency\": \"monthly\",\n  \"contribution_amount\": \"100\",\n  \"effective_from\": \"2024-07-01\",\n  \"affiliation\": \"Sample Affiliation\",\n  \"country\": \"Ethiopia\",\n  \"state\": \"Addis Ababa\",\n  \"city\": \"Addis Ababa\",\n  \"address\": \"123 Main St\",\n  \"zip_code\": \"1000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Mahbers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/mahber", "host": ["{{baseUrl}}"], "path": ["mahber"] }
+          }
+        },
+        {
+          "name": "Get Joined Mahbers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/mahber/joined", "host": ["{{baseUrl}}"], "path": ["mahber", "joined"] }
+          }
+        },
+        {
+          "name": "Get All Mahbers",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/mahber/all", "host": ["{{baseUrl}}"], "path": ["mahber", "all"] }
+          }
+        },
+        {
+          "name": "Get Mahber By ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/mahber/1", "host": ["{{baseUrl}}"], "path": ["mahber", "1"] }
+          }
+        },
+        {
+          "name": "Edit Mahber",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/mahber/1", "host": ["{{baseUrl}}"], "path": ["mahber", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Mahber\",\n  \"description\": \"Updated description.\",\n  \"type\": \"edir\",\n  \"contribution_unit\": \"month\",\n  \"contribution_frequency\": \"monthly\",\n  \"contribution_amount\": \"150\",\n  \"effective_from\": \"2024-08-01\",\n  \"affiliation\": \"Updated Affiliation\",\n  \"country\": \"Ethiopia\",\n  \"state\": \"Oromia\",\n  \"city\": \"Adama\",\n  \"address\": \"456 New St\",\n  \"zip_code\": \"2000\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Mahber",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/mahber/1", "host": ["{{baseUrl}}"], "path": ["mahber", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Request to Join Mahber",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/request", "host": ["{{baseUrl}}"], "path": ["member", "request"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Invite Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/invite", "host": ["{{baseUrl}}"], "path": ["member", "invite"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Respond to Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/respond-invite", "host": ["{{baseUrl}}"], "path": ["member", "respond-invite"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"accept\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Respond to Join Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/respond-join", "host": ["{{baseUrl}}"], "path": ["member", "respond-join"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\",\n  \"accept\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Ban Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/ban", "host": ["{{baseUrl}}"], "path": ["member", "ban"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Unban Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/member/unban", "host": ["{{baseUrl}}"], "path": ["member", "unban"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edir_id\": \"1\",\n  \"user_id\": \"2\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Mahber Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/mahber/1/members", "host": ["{{baseUrl}}"], "path": ["mahber", "1", "members"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Get Onboarding Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/mahber/1/onboarding-link", "host": ["{{baseUrl}}"], "path": ["mahber", "1", "onboarding-link"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_url\": \"https://yenetech.com/stripe/refresh\",\n  \"return_url\": \"https://yenetech.com/stripe/return\"\n}"
+            }
+          }
+        },
+        {
+          "name": "One Time Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payment/1/payment/one_time", "host": ["{{baseUrl}}"], "path": ["payment", "1", "payment", "one_time"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"description\": \"One time contribution\",\n  \"payment_method_id\": \"pm_card_visa\",\n  \"save_payment_method\": true,\n  \"use_saved\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Subscription Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payment/1/payment/subscription", "host": ["{{baseUrl}}"], "path": ["payment", "1", "payment", "subscription"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_id\": \"price_1Nxxxxxxx\",\n  \"payment_method_id\": \"pm_card_visa\",\n  \"save_payment_method\": true,\n  \"use_saved\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Stripe Checkout Session (One Time)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payment/1/checkout/one_time", "host": ["{{baseUrl}}"], "path": ["payment", "1", "checkout", "one_time"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"currency\": \"usd\",\n  \"description\": \"One time checkout payment\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Stripe Checkout Session (Subscription)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payment/1/checkout/subscription", "host": ["{{baseUrl}}"], "path": ["payment", "1", "checkout", "subscription"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_id\": \"price_1Nxxxxxxx\",\n  \"description\": \"Subscription checkout payment\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" }
+  ]
+}
