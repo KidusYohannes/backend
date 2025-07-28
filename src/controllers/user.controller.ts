@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendEmail } from '../services/email.service';
+import { sendEmail, sendEmailHtml } from '../services/email.service';
 import {
   getAllUsers,
   getUserById,
@@ -38,15 +38,28 @@ export const addUser = async (req: Request, res: Response) => {
     const user = await createUser(req.body);
 
     // --- COMMENT OUT THIS BLOCK FOR LATER USE ---
-    /*
-    // Send verification email with link
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(user.link_token)}`;
-    await sendEmail(
+    
+    // Send verification email with HTML and a Bootstrap-styled button
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify?email=${encodeURIComponent(user.email ?? '')}&token=${encodeURIComponent(user.link_token ?? '')}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>Verify your Mahber account</h2>
+        <p>Please verify your account by clicking the button below:</p>
+        <a href="${verifyUrl}" style="display: inline-block; padding: 10px 24px; font-size: 16px; color: #fff; background-color: #0d6efd; border-radius: 4px; text-decoration: none; margin-bottom: 16px;">
+          Verify Account
+        </a>
+        <p>Or use your verification code:</p>
+        <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 16px;">
+          ${user.link_token}
+        </div>
+        <p style="color: #888;">This will expire in 30 minutes.</p>
+      </div>
+    `;
+    await sendEmailHtml(
       user.email,
       'Verify your Mahber account',
-      `Please verify your account by clicking the following link: ${verifyUrl}\n\nThis link will expire in 30 minutes.`
+      htmlBody
     );
-    */
 
     // --- USE THIS FOR NOW: SEND ONLY THE 6-CHAR TOKEN ---
     // await sendEmail(
@@ -55,8 +68,8 @@ export const addUser = async (req: Request, res: Response) => {
     //   `Your verification code is: ${user.link_token}\n\nThis code will expire in 30 minutes.`
     // );
 
-    //res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
-    res.status(201).json({ message: 'User registered. Please login.' });
+    res.status(201).json({ message: 'User registered. Please check your email for the verification code.' });
+    //res.status(201).json({ message: 'User registered. Please login.' });
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to create user' });
   }

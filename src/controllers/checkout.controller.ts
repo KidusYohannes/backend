@@ -67,7 +67,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         },
         success_url,
         cancel_url,
-        customer_email: user.email
+        // customer_email: user.email
       });
       return res.json({ url: session.url });
     } else {
@@ -101,7 +101,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         },
         success_url,
         cancel_url,
-        customer_email: user.email
+        // customer_email: user.email
       });
       return res.json({ url: session.url });
     }

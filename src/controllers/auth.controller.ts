@@ -42,8 +42,12 @@ export const activateUserAccount = async (req: Request, res: Response) => {
     return;
   }
   const user = await findUserByEmail(email);
-  if (!user || user.link_token !== token) {
-    res.status(400).json({ message: 'Invalid token or email' });
+  if (!user) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
+  if (user.link_token !== token) {
+    res.status(400).json({ message: 'Invalid token or email: ' + user.link_token + ' : ' + token });
     return;
   }
   if (!user.token_expiration || new Date(user.token_expiration) < new Date()) {

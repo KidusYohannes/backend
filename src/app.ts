@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import "./services/schdule.service"; // Import the schedule service to start the cron job
 
 dotenv.config();
 

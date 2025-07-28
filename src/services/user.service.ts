@@ -35,7 +35,7 @@ export const createUser = async (user: User): Promise<User> => {
   }
 
   const hashedPassword = await bcrypt.hash(user.password, 10);
-  const linkToken = generateToken(16);
+  const linkToken = generateToken(6);
   const tokenExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
 
   // Create Stripe customer
@@ -50,7 +50,7 @@ export const createUser = async (user: User): Promise<User> => {
     password: hashedPassword,
     link_token: linkToken,
     token_expiration: tokenExpiration.toISOString(),
-    status: 'active',
+    status: 'pending',
     stripe_id: stripeCustomer.id // Save Stripe customer ID
   });
   return createdUser.toJSON() as User;
@@ -91,7 +91,7 @@ export const activateUser = async (email: string, token: string): Promise<boolea
         email,
         link_token: token,
         token_expiration: { [Op.gt]: new Date() },
-        status: 'inactive'
+        status: 'pending'
       }
     }
   );
