@@ -6,6 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
     "build": "tsc",
+    "build_server": "npm run stop && npm install && npm run build",
     "stop": "pkill -f dist/index.js || true",
     "stopnode": "pkill -f node || true",
     "stopnodemon": "pkill -f nodemon || true"
