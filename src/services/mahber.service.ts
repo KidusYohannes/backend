@@ -38,6 +38,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       description: payload.description,
       stripe_account_id: '',
       stripe_product_id: product.id, // <-- set product id
+      stripe_status: 'inactive', // ensure default is 'inactive'
       type: payload.type,
       contribution_unit: payload.contribution_unit,
       contribution_frequency: payload.contribution_frequency,
@@ -253,3 +254,24 @@ export const deleteMahber = async (id: number, userId: number): Promise<boolean>
   const deleted = await Mahber.destroy({ where: { id, created_by: userId } });
   return deleted > 0;
 };
+
+export const checkMahberStripeAccount = async (mahberId: number) => {
+  const mahber = await Mahber.findByPk(mahberId);
+  if (!mahber) return false;
+
+  const account = await stripe.accounts.retrieve(mahber.stripe_account_id);
+  if (account && account.deleted) {
+    // If the account was deleted, we should remove the stripe_account_id from the Mahber
+    await mahber.update({ stripe_account_id: '' });
+    return false;
+  }
+  if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
+    // If the account is fully set up, we can return true
+    await mahber.update({ stripe_status: 'active' });
+    return true;
+  }else{
+    // If the account is not fully set up, we can return false
+    await mahber.update({ stripe_status: 'pending' });
+    return false;
+  }
+}

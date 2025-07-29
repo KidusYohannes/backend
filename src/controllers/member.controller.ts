@@ -4,6 +4,16 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Member } from '../models/member.model';
 import { User } from '../models/user.model';
 
+// Helper to resolve user_id from id or email
+async function resolveUserId(user_id?: string, user_email?: string): Promise<string | null> {
+  if (user_id) return user_id;
+  if (user_email) {
+    const user = await User.findOne({ where: { email: user_email } });
+    return user ? user.id.toString() : null;
+  }
+  return null;
+}
+
 export const getAllMahbers = async (_req: AuthenticatedRequest, res: Response) => {
   const mahbers = await memberService.getAllMahbers();
   res.json(mahbers);
@@ -20,7 +30,12 @@ export const requestToJoin = async (req: AuthenticatedRequest, res: Response) =>
 
 export const inviteMember = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const member = await memberService.inviteMember(req.user!.id.toString(), req.body.edir_id, req.body.user_id);
+    const userId = await resolveUserId(req.body.user_id, req.body.user_email);
+    if (!userId) {
+      res.status(400).json({ message: 'User not found' });
+      return;
+    }
+    const member = await memberService.inviteMember(req.user!.id.toString(), req.body.edir_id, userId);
     res.status(201).json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -38,7 +53,12 @@ export const respondToInvite = async (req: AuthenticatedRequest, res: Response) 
 
 export const respondToJoinRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const member = await memberService.respondToJoinRequest(req.user!.id.toString(), req.body.edir_id, req.body.user_id, req.body.accept);
+    const userId = await resolveUserId(req.body.user_id, req.body.user_email);
+    if (!userId) {
+      res.status(400).json({ message: 'User not found' });
+      return;
+    }
+    const member = await memberService.respondToJoinRequest(req.user!.id.toString(), req.body.edir_id, userId, req.body.accept);
     res.json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -47,7 +67,12 @@ export const respondToJoinRequest = async (req: AuthenticatedRequest, res: Respo
 
 export const banMember = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const member = await memberService.banMember(req.user!.id.toString(), req.body.edir_id, req.body.user_id);
+    const userId = await resolveUserId(req.body.user_id, req.body.user_email);
+    if (!userId) {
+      res.status(400).json({ message: 'User not found' });
+      return;
+    }
+    const member = await memberService.banMember(req.user!.id.toString(), req.body.edir_id, userId);
     res.json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -56,7 +81,12 @@ export const banMember = async (req: AuthenticatedRequest, res: Response) => {
 
 export const unbanMember = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const member = await memberService.unbanMember(req.user!.id.toString(), req.body.edir_id, req.body.user_id);
+    const userId = await resolveUserId(req.body.user_id, req.body.user_email);
+    if (!userId) {
+      res.status(400).json({ message: 'User not found' });
+      return;
+    }
+    const member = await memberService.unbanMember(req.user!.id.toString(), req.body.edir_id, userId);
     res.json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });

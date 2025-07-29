@@ -6,8 +6,10 @@ interface MahberAttributes {
   name: string;
   created_by: number;
   description?: string;
+  profile?: string;
   stripe_account_id: string;
   stripe_product_id?: string; // <-- add this line
+  stripe_status?: string; // new column for Stripe product status
   type?: string;
   contribution_unit?: string; // was contribution_period
   contribution_frequency?: string; // new column
@@ -31,8 +33,10 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public name!: string;
   public created_by!: number;
   public description?: string;
+  public profile?: string;
   public stripe_account_id!: string; // new column for Stripe account ID
   public stripe_product_id?: string; // <-- add this line
+  public stripe_status?: string; // new column for Stripe product status
   public type?: string;
   public contribution_unit?: string; // was contribution_period
   public contribution_frequency?: string; // new column
@@ -55,8 +59,10 @@ Mahber.init(
     name: { type: DataTypes.STRING, allowNull: false },
     created_by: { type: DataTypes.INTEGER, allowNull: false },
     description: { type: DataTypes.STRING },
+    profile: { type: DataTypes.STRING }, // new column for profile
     stripe_account_id: { type: DataTypes.STRING, allowNull: false }, // new column for Stripe account ID
     stripe_product_id: { type: DataTypes.STRING }, // <-- add this line
+    stripe_status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'inactive' }, // default to 'inactive'
     type: { type: DataTypes.STRING },
     contribution_unit: { type: DataTypes.STRING },
     contribution_frequency: { type: DataTypes.STRING },

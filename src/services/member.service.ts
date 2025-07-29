@@ -4,6 +4,7 @@ import { MahberContributionTerm } from '../models/mahber_contribution_term.model
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op } from 'sequelize';
 import { getCurrentPeriodNumber } from '../utils/utils';
+import { User } from '../models/user.model';
 
 export const getAllMahbers = async () => {
   return Mahber.findAll();
@@ -87,9 +88,14 @@ export const respondToInvite = async (userId: string, edirId: string, accept: bo
 };
 
 export const respondToJoinRequest = async (adminId: string, edirId: string, userId: string, accept: boolean) => {
+  if (!adminId || !edirId || !userId) {
+    throw new Error('Invalid parameters');
+  }
+  //console.log(`Admin ID: ${adminId}, EDIR ID: ${edirId}, User ID: ${userId}, Accept: ${accept}`);
   // Only admin can accept/reject
   const admin = await Member.findOne({ where: { member_id: adminId, edir_id: edirId, role: 'admin', status: 'accepted' } });
   if (!admin) throw new Error('Only admin can respond');
+
   const member = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'requested' } });
   if (!member) throw new Error('No join request found');
   if (accept) {
