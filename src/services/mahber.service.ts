@@ -21,7 +21,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
     // Create Stripe product for this Mahber
     const product = await stripe.products.create({
       name: payload.name,
-      description: payload.description,
+      // description: payload.description,
       metadata: {
         contribution_unit: payload.contribution_unit || '',
         contribution_frequency: payload.contribution_frequency || '',
@@ -229,7 +229,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
     // Create a new Stripe product with updated info
     const product = await stripe.products.create({
       name: updated.name || mahber.name,
-      description: updated.description || mahber.description,
+      // description: updated.description || mahber.description,
       metadata: {
         contribution_unit: updated.contribution_unit || mahber.contribution_unit || '',
         contribution_frequency: updated.contribution_frequency || mahber.contribution_frequency || '',

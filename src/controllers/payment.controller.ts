@@ -20,35 +20,43 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     res.status(404).json({ message: 'Mahber not found' });
     return;
   }
-  if (!mahber || mahber.created_by !== req.user.id) {
-    res.status(404).json({ message: 'Mahiber not found or not authorized' });
-    return;
-  }
-  const user = await getUserById(Number(mahber.created_by));
-  let accountId = mahber.stripe_account_id;
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "US", // or ET if Ethiopia is supported
-      email: user?.email,
-      capabilities: { transfers: { requested: true } },
+  try {
+    if (!mahber || mahber.created_by !== req.user.id) {
+      res.status(404).json({ message: 'Mahiber not found or not authorized' });
+      return;
+    }
+    const user = await getUserById(Number(mahber.created_by));
+    let accountId = mahber.stripe_account_id;
+    if (!accountId) {
+      // Only include description if it's non-empty
+      const stripeAccountPayload: Stripe.AccountCreateParams = {
+        type: "express",
+        country: "US", // or ET if Ethiopia is supported
+        email: user?.email,
+        capabilities: { transfers: { requested: true } },
+      };
+      // Stripe AccountCreateParams does not support 'description', so skip this assignment
+      const account = await stripe.accounts.create(stripeAccountPayload);
+      accountId = account.id;
+      mahber.stripe_account_id = accountId;
+      await updateMahber(Number(req.params.id), mahber, req.user.id);
+    }
+    // Use refresh_url and return_url from request body, fallback to defaults if not provided
+    const refreshUrl = req.body.refresh_url || "https://yenetech.com/stripe/refresh";
+    const returnUrl = req.body.return_url || "https://yenetech.com/stripe/return";
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: refreshUrl,
+      return_url: returnUrl,
+      type: "account_onboarding",
     });
-    accountId = account.id;
-    mahber.stripe_account_id = accountId;
-    await updateMahber(Number(req.params.id), mahber, req.user.id);
+    res.json({
+      accountLinkUrl: accountLink.url
+    }); 
+  } catch (error) {
+    console.error('Error creating onboarding link:', error);
+    res.status(500).json({ message: 'Failed to create onboarding link: ' + error });
   }
-  // Use refresh_url and return_url from request body, fallback to defaults if not provided
-  const refreshUrl = req.body.refresh_url || "https://yenetech.com/stripe/refresh";
-  const returnUrl = req.body.return_url || "https://yenetech.com/stripe/return";
-  const accountLink = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: refreshUrl,
-    return_url: returnUrl,
-    type: "account_onboarding",
-  });
-  res.json({
-    accountLinkUrl: accountLink.url
-  }); 
 }
 
 // Helper to get or update user's payment methods (now on user, not member)
