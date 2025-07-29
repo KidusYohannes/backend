@@ -36,6 +36,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       name: payload.name,
       created_by: payload.created_by,
       description: payload.description,
+      profile: payload.profile, // include profile if present
       stripe_account_id: '',
       stripe_product_id: product.id, // <-- set product id
       stripe_status: 'inactive', // ensure default is 'inactive'
