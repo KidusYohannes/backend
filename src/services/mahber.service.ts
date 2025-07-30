@@ -5,6 +5,9 @@ import sequelize from '../config/db';
 import { Op } from 'sequelize';
 import Stripe from 'stripe';
 import { Sequelize } from 'sequelize';
+import { generateContributionChangeNoticeEmail } from '../controllers/email.controller';
+import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
+import { User } from '../models/user.model';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
@@ -31,6 +34,25 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       }
     });
 
+    // Create Stripe price if not present in payload
+    let priceId = payload.stripe_price_id;
+    if (!priceId) {
+      const recurring =
+        payload.contribution_frequency && payload.contribution_unit
+          ? {
+              interval: payload.contribution_unit,
+              interval_count: Number(payload.contribution_frequency)
+            }
+          : undefined;
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: Math.round(Number(payload.contribution_amount) * 100), // Stripe expects amount in cents
+        currency: 'usd', // or use payload.currency if available
+        recurring
+      });
+      priceId = price.id;
+    }
+
     // Extract Mahber fields
     const mahberFields = {
       name: payload.name,
@@ -39,6 +61,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       profile: payload.profile, // include profile if present
       stripe_account_id: '',
       stripe_product_id: product.id, // <-- set product id
+      stripe_price_id: priceId,      // <-- set price id
       stripe_status: 'inactive', // ensure default is 'inactive'
       type: payload.type,
       contribution_unit: payload.contribution_unit,
@@ -224,6 +247,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
   const shouldUpdateProduct = contributionFields.some(field => field in updated);
 
   let stripe_product_id = mahber.stripe_product_id;
+  let stripe_price_id = mahber.stripe_price_id;
 
   if (shouldUpdateProduct) {
     // Create a new Stripe product with updated info
@@ -240,14 +264,77 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
     });
     stripe_product_id = product.id;
     updated.stripe_product_id = stripe_product_id;
+
+    // Create a new Stripe price if missing or contribution fields changed
+    const interval = updated.contribution_unit || mahber.contribution_unit;
+    const interval_count = updated.contribution_frequency || mahber.contribution_frequency;
+    const recurring = {
+      interval: interval as Stripe.Price.Recurring.Interval,
+      interval_count: Number(interval_count)
+    };
+    const price = await stripe.prices.create({
+      product: product.id,
+      unit_amount: Math.round(Number(updated.contribution_amount || mahber.contribution_amount) * 100),
+      currency: 'usd',
+      recurring: recurring
+    });
+    stripe_price_id = price.id;
+    updated.stripe_price_id = stripe_price_id;
+  } else if (!stripe_price_id) {
+    const interval = updated.contribution_unit || mahber.contribution_unit;
+    const interval_count = updated.contribution_frequency || mahber.contribution_frequency;
+    const recurring = {
+      interval: interval as Stripe.Price.Recurring.Interval,
+      interval_count: Number(interval_count)
+    };
+    const price = await stripe.prices.create({
+      product: stripe_product_id,
+      unit_amount: Math.round(Number(mahber.contribution_amount) * 100),
+      currency: 'usd',
+      recurring: recurring 
+    });
+    stripe_price_id = price.id;
+    updated.stripe_price_id = stripe_price_id;
   }
 
   await mahber.update({
     ...updated,
     updated_by: userId,
     updated_at: new Date(),
-    stripe_product_id // always set to latest
+    stripe_product_id, // always set to latest
+    stripe_price_id    // always set to latest
   });
+
+  // After updating, notify all members if contribution params changed
+  if (
+    (updated.contribution_amount && updated.contribution_amount !== mahber.contribution_amount) ||
+    (updated.contribution_unit && updated.contribution_unit !== mahber.contribution_unit) ||
+    (updated.contribution_frequency && updated.contribution_frequency !== mahber.contribution_frequency)
+  ) {
+    const members = await Member.findAll({ where: { edir_id: id, status: 'accepted' } });
+    for (const member of members) {
+      const user = await User.findByPk(member.member_id);
+      if (user) {
+        const email = generateContributionChangeNoticeEmail(
+          user,
+          mahber,
+          {
+            amount: Number(mahber.contribution_amount),
+            unit: String(mahber.contribution_unit),
+            frequency: Number(mahber.contribution_frequency)
+          },
+          {
+            amount: Number(updated.contribution_amount ?? mahber.contribution_amount),
+            unit: String(updated.contribution_unit ?? mahber.contribution_unit),
+            frequency: Number(updated.contribution_frequency ?? mahber.contribution_frequency)
+          },
+          String(updated.contribution_start_date || mahber.contribution_start_date)
+        );
+        await sendEmail(user.email, email.subject, email.html);
+      }
+    }
+  }
+
   return mahber.toJSON() as Mahber;
 };
 

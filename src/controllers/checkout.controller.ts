@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { saveStripeSessionId } from '../models/member.model';
+import { Payment } from '../models/payment.model';
+import { MahberContribution } from '../models/mahber_contribution.model';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -69,6 +72,12 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         cancel_url,
         // customer_email: user.email
       });
+      // Save session ID to member row
+      await saveStripeSessionId(String(mahberId), String(req.user.id), session.id);
+
+      // Record payment for subscription (after Stripe webhook or after subscription is confirmed)
+      // You may need to handle this in a webhook for full reliability
+
       return res.json({ url: session.url });
     } else {
       // One-time payment
@@ -103,6 +112,33 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         cancel_url,
         // customer_email: user.email
       });
+      // Save session ID to member row
+      await saveStripeSessionId(String(mahberId), String(req.user.id), session.id);
+
+      // Find the latest unpaid contribution for this user and Mahber
+      const contribution = await MahberContribution.findOne({
+        where: {
+          mahber_id: mahberId,
+          member_id: req.user.id,
+          status: 'unpaid'
+        },
+        order: [['period_number', 'DESC']]
+      });
+
+      // Record payment in payments table (mahber_payments)
+      if (contribution) {
+        let receipt_url = session.url ?? null;
+        await Payment.create({
+          stripe_payment_id: String(session.payment_intent || session.id),
+          receipt_url: String(receipt_url),
+          method: 'one-time',
+          contribution_id: contribution.id,
+          member_id: req.user.id,
+          amount: req.body.amount,
+          status: 'pending'
+        });
+      }
+
       return res.json({ url: session.url });
     }
   } catch (error: any) {

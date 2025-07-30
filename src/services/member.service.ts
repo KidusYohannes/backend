@@ -5,6 +5,8 @@ import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op } from 'sequelize';
 import { getCurrentPeriodNumber } from '../utils/utils';
 import { User } from '../models/user.model';
+import { generateMahberJoinConfirmationEmail } from '../controllers/email.controller';
+import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
 
 export const getAllMahbers = async () => {
   return Mahber.findAll();
@@ -79,6 +81,13 @@ export const respondToInvite = async (userId: string, edirId: string, accept: bo
     await member.save();
     // Create member contribution for current period with status 'pending'
     await createMemberContributionOnAccept(edirId, userId);
+    // Send Mahber join confirmation email
+    const user = await User.findByPk(userId);
+    const mahber = await Mahber.findByPk(edirId);
+    if (user && mahber) {
+      const email = generateMahberJoinConfirmationEmail(user, mahber);
+      await sendEmail(user.email, email.subject, email.html);
+    }
     return member;
   } else {
     member.status = 'rejected';
@@ -104,6 +113,13 @@ export const respondToJoinRequest = async (adminId: string, edirId: string, user
     await member.save();
     // Create member contribution for current period with status 'pending'
     await createMemberContributionOnAccept(edirId, userId);
+    // Send Mahber join confirmation email
+    const user = await User.findByPk(userId);
+    const mahber = await Mahber.findByPk(edirId);
+    if (user && mahber) {
+      const email = generateMahberJoinConfirmationEmail(user, mahber);
+      await sendEmail(user.email, email.subject, email.html);
+    }
     return member;
   } else {
     member.status = 'rejected';

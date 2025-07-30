@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById, updateMahber } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { Payment } from '../models/payment.model';
+import { MahberContribution } from '../models/mahber_contribution.model';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -146,6 +148,29 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
       ...(paymentMethodId ? { off_session: false, confirm: false } : {})
     });
 
+    // Find the latest unpaid contribution for this user and Mahber
+    const contribution = await MahberContribution.findOne({
+      where: {
+        mahber_id: mahberId,
+        member_id: req.user.id,
+        status: 'unpaid'
+      },
+      order: [['period_number', 'DESC']]
+    });
+
+    // Record payment in payments table (mahber_payments)
+    if (contribution) {
+      await Payment.create({
+        stripe_payment_id: paymentIntent.id,
+        receipt_url: '', // You can update this after payment confirmation
+        method: 'one-time',
+        contribution_id: contribution.id,
+        member_id: req.user.id,
+        amount: req.body.amount,
+        status: 'pending'
+      });
+    }
+
     res.json({ clientSecret: paymentIntent.client_secret, paymentMethods });
   } catch (error) {
     console.error('Error creating payment intent:', error);
@@ -217,6 +242,30 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
       },
       expand: ['latest_invoice.payment_intent'],
     });
+
+    // Find the latest unpaid contribution for this user and Mahber
+    const contribution = await MahberContribution.findOne({
+      where: {
+        mahber_id: mahberId,
+        member_id: req.user.id,
+        status: 'unpaid'
+      },
+      order: [['period_number', 'DESC']]
+    });
+
+    // Record payment in payments table (mahber_payments)
+    if (contribution) {
+      await Payment.create({
+        stripe_payment_id: subscription.id,
+        receipt_url: '', // You can update this after payment confirmation
+        method: 'subscription',
+        contribution_id: contribution.id,
+        member_id: req.user.id,
+        amount: 0, // You can update this after payment confirmation
+        status: 'pending'
+      });
+    }
+
     res.json({
       subscriptionId: subscription.id,
       clientSecret: (subscription.latest_invoice as any)?.payment_intent?.client_secret,

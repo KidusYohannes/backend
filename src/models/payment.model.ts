@@ -1,0 +1,43 @@
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../config/db';
+
+interface PaymentAttributes {
+  id?: number;
+  stripe_payment_id: string;
+  receipt_url?: string;
+  method: 'subscription' | 'one-time';
+  contribution_id: number;
+  member_id: number;
+  amount: number;
+  status: string;
+  created_at?: string;
+}
+
+interface PaymentCreationAttributes extends Optional<PaymentAttributes, 'id' | 'receipt_url' | 'created_at'> {}
+
+export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes> implements PaymentAttributes {
+  public id!: number;
+  public stripe_payment_id!: string;
+  public receipt_url?: string;
+  public method!: 'subscription' | 'one-time';
+  public contribution_id!: number;
+  public member_id!: number;
+  public amount!: number;
+  public status!: string;
+  public created_at?: string;
+}
+
+Payment.init(
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    stripe_payment_id: { type: DataTypes.STRING, allowNull: false },
+    receipt_url: { type: DataTypes.STRING },
+    method: { type: DataTypes.STRING, allowNull: false },
+    contribution_id: { type: DataTypes.INTEGER, allowNull: false },
+    member_id: { type: DataTypes.INTEGER, allowNull: false },
+    amount: { type: DataTypes.DECIMAL, allowNull: false },
+    status: { type: DataTypes.STRING, allowNull: false },
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  },
+  { sequelize, tableName: 'mahber_payments', timestamps: false }
+);

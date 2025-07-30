@@ -4,6 +4,8 @@ import { MahberContribution } from '../models/mahber_contribution.model';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 import sequelize from '../config/db';
 import { Op } from 'sequelize';
+import { generateRecurringPaymentNoticeEmail } from '../controllers/email.controller';
+import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
 
 /**
  * Create initial contributions for all members when a Mahber is created.
@@ -68,8 +70,8 @@ export async function createNewContributionPeriod(
 
   // Create a contribution row for each member
   const contributions = await Promise.all(
-    memberIds.map(member_id =>
-      MahberContribution.create({
+    memberIds.map(async member_id => {
+      const contrib = await MahberContribution.create({
         mahber_id,
         member_id,
         period_number: periodNumber,
@@ -78,8 +80,16 @@ export async function createNewContributionPeriod(
         amount_paid: 0,
         status: 'unpaid',
         period_start_date: periodStartDate
-      })
-    )
+      });
+      // Send recurring payment notice email
+      const user = await User.findByPk(member_id);
+      const mahber = await Mahber.findByPk(mahber_id);
+      if (user && mahber) {
+        const email = generateRecurringPaymentNoticeEmail(user, mahber, term.amount, periodStartDate);
+        await sendEmail(user.email, email.subject, email.html);
+      }
+      return contrib;
+    })
   );
   return contributions;
 }
