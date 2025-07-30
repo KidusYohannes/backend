@@ -3,7 +3,7 @@ import { MahberContribution } from '../models/mahber_contribution.model';
 import { generateOneTimePaymentSuccessEmail } from '../controllers/email.controller';
 import { Mahber } from '../models/mahber.model';
 import { User } from '../models/user.model';
-import { sendEmail } from '../services/email.service'; // Adjust the import based on your project
+import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project
 
 export async function recordPayment({
   paymentId,
@@ -74,6 +74,6 @@ export async function recordOneTimePayment({
   const mahber = await Mahber.findByPk(contribution?.mahber_id);
   if (user && mahber) {
     const email = generateOneTimePaymentSuccessEmail(user, mahber, amount, receiptUrl || '');
-    await sendEmail(user.email, email.subject, email.html);
+    await sendEmailHtml(user.email, email.subject, email.html);
   }
 }

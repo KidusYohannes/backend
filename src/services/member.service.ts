@@ -6,7 +6,7 @@ import { Op } from 'sequelize';
 import { getCurrentPeriodNumber } from '../utils/utils';
 import { User } from '../models/user.model';
 import { generateMahberJoinConfirmationEmail } from '../controllers/email.controller';
-import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
+import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project structure
 
 export const getAllMahbers = async () => {
   return Mahber.findAll();
@@ -86,7 +86,7 @@ export const respondToInvite = async (userId: string, edirId: string, accept: bo
     const mahber = await Mahber.findByPk(edirId);
     if (user && mahber) {
       const email = generateMahberJoinConfirmationEmail(user, mahber);
-      await sendEmail(user.email, email.subject, email.html);
+      await sendEmailHtml(user.email, email.subject, email.html);
     }
     return member;
   } else {
@@ -118,7 +118,7 @@ export const respondToJoinRequest = async (adminId: string, edirId: string, user
     const mahber = await Mahber.findByPk(edirId);
     if (user && mahber) {
       const email = generateMahberJoinConfirmationEmail(user, mahber);
-      await sendEmail(user.email, email.subject, email.html);
+      await sendEmailHtml(user.email, email.subject, email.html);
     }
     return member;
   } else {

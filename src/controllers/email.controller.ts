@@ -78,11 +78,11 @@ export function generateMahberJoinConfirmationEmail(user: User, mahber: Mahber) 
 
 export function generateForgotPasswordEmail(user: User, linkToken: string) {
   return {
-    subject: 'Reset Your EdirConnect Password',
+    subject: 'Reset Your Mahber Password',
     html: `
       <h2>Password Reset Request</h2>
       <p>Dear ${user.full_name},</p>
-      <p>We received a request to reset your EdirConnect account password.</p>
+      <p>We received a request to reset your Mahber account password.</p>
       <p>Please click the link below to reset your password:</p>
       <p><a href="${process.env.FRONTEND_URL}/reset-password?token=${linkToken}&email=${encodeURIComponent(user.email)}">Reset Password</a></p>
       <p>If you did not request this, please ignore this email.</p>

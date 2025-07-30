@@ -8,7 +8,7 @@ import {
   updateUser
 } from '../services/user.service';
 import { generateForgotPasswordEmail } from './email.controller';
-import { sendEmail } from '../services/email.service'; // Adjust import if needed
+import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust import if needed
 import crypto from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
@@ -91,7 +91,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
   const expiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   await updateUser(user.id, { link_token: token, token_expiration: expiration.toISOString() });
   const emailContent = generateForgotPasswordEmail(user, token);
-  await sendEmail(user.email, emailContent.subject, emailContent.html);
+  console.log('Sending email:', emailContent);
+  await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
   res.json({ message: 'Password reset email sent' });
 };
 

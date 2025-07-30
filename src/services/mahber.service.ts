@@ -6,7 +6,7 @@ import { Op } from 'sequelize';
 import Stripe from 'stripe';
 import { Sequelize } from 'sequelize';
 import { generateContributionChangeNoticeEmail } from '../controllers/email.controller';
-import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
+import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project structure
 import { User } from '../models/user.model';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -330,7 +330,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
           },
           String(updated.contribution_start_date || mahber.contribution_start_date)
         );
-        await sendEmail(user.email, email.subject, email.html);
+        await sendEmailHtml(user.email, email.subject, email.html);
       }
     }
   }

@@ -5,7 +5,7 @@ import { MahberContributionTerm } from '../models/mahber_contribution_term.model
 import sequelize from '../config/db';
 import { Op } from 'sequelize';
 import { generateRecurringPaymentNoticeEmail } from '../controllers/email.controller';
-import { sendEmail } from '../services/email.service'; // Adjust the import based on your project structure
+import { sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project structure
 
 /**
  * Create initial contributions for all members when a Mahber is created.
@@ -86,7 +86,7 @@ export async function createNewContributionPeriod(
       const mahber = await Mahber.findByPk(mahber_id);
       if (user && mahber) {
         const email = generateRecurringPaymentNoticeEmail(user, mahber, term.amount, periodStartDate);
-        await sendEmail(user.email, email.subject, email.html);
+        await sendEmailHtml(user.email, email.subject, email.html);
       }
       return contrib;
     })
