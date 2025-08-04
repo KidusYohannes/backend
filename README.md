@@ -1,8 +1,8 @@
-# EdirConnect Backend Documentation
+# Mahber App Backend Documentation
 
 ## Overview
 
-EdirConnect is a backend system for managing Mahbers (social groups), member contributions, and payments using Stripe. It supports recurring and one-time payments, automated contribution generation, and scheduled checks for payment and Stripe account status.
+Mahber App is a backend system for managing Mahbers (social groups), member contributions, and payments using Stripe. It supports recurring and one-time payments, automated contribution generation, and scheduled checks for payment and Stripe account status.
 
 ---
 
@@ -150,5 +150,5 @@ EdirConnect is a backend system for managing Mahbers (social groups), member con
 
 ## Contact
 
-For support or questions, contact the EdirConnect team at [info@demo2.yenetech.com](mailto:info@demo2.yenetech.com).
+For support or questions, contact the Mahber App team at [info@demo2.yenetech.com](mailto:info@demo2.yenetech.com).
 

@@ -4,6 +4,9 @@ import { Member } from "../models/member.model";
 import { MahberContributionTerm } from "../models/mahber_contribution_term.model";
 import { MahberContribution } from "../models/mahber_contribution.model";
 import { Op } from "sequelize";
+import { generateRecurringPaymentNoticeEmail } from '../controllers/email.controller';
+import { sendEmailHtml } from '../services/email.service';
+import { User } from "../models/user.model";
 
 // Helper to calculate next period start date
 function getNextPeriodDate(current: Date, frequency: number, unit: string): Date {
@@ -47,7 +50,7 @@ cron.schedule('0 1 * * *', async () => {
         where: { mahber_id: mahber.id, member_id: member.member_id, period_number: nextPeriodNumber }
       });
       if (!exists) {
-        await MahberContribution.create({
+        const contribution = await MahberContribution.create({
           mahber_id: mahber.id,
           member_id: Number(member.member_id),
           period_number: nextPeriodNumber,
@@ -57,6 +60,13 @@ cron.schedule('0 1 * * *', async () => {
           status: 'unpaid',
           period_start_date: nextStartDate.toISOString().slice(0, 10)
         });
+        // Send recurring payment notice email
+        const user = await User.findByPk(member.member_id);
+        const mahberObj = mahber; // already fetched
+        if (user && mahberObj) {
+          const email = generateRecurringPaymentNoticeEmail(user, mahberObj, term.amount, nextStartDate.toISOString().slice(0, 10));
+          await sendEmailHtml(user.email, email.subject, email.html);
+        }
       }
     }
   }

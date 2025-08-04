@@ -4,6 +4,8 @@ import { Mahber } from "../models/mahber.model";
 import { Member } from "../models/member.model";
 import { Op, WhereOptions } from "sequelize";
 import Stripe from "stripe";
+import { Payment } from "../models/payment.model";
+import { MahberContribution } from "../models/mahber_contribution.model";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
  /**
@@ -13,7 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '20
   * and calls the checkMahberStripeAccount function to verify their status.
   */
 cron.schedule('0 */2 * * *', async () => {
-  console.log('Running scheduled contribution check...');
+  console.log('Running Scheduler to check Stripe accounts for Mahbers...');
   // call your service logic here
 
   const whereClause: WhereOptions = {
@@ -184,4 +186,134 @@ cron.schedule('0 */2 * * *', async () => {
     }
   }
   console.log('Scheduled Stripe subscription sync completed.', Date.now());
+});
+
+/**
+ * Scheduler to get the last payment details for subscription payments
+ * This runs every 1 hour at minute 0.
+ * It checks for members with active subscriptions and retrieves their latest paid invoice and charge
+ * to ensure that their subscription status and payment info are up-to-date.
+ */
+cron.schedule('0 * * * *', async () => {
+  console.log('Running scheduled Stripe subscription payment sync...');
+  const whereClause: WhereOptions = {
+    stripe_subscription_id: { [Op.not]: null },
+    status: 'accepted'
+  };
+  // Get all members with active subscriptions
+  const members = await Member.findAll({
+    where: {
+      ...whereClause
+    }
+  });
+
+  for (const member of members) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(member.stripe_subscription_id as string);
+      if (subscription.status === 'active') {
+        // Get the latest paid invoice for this subscription
+        const invoices = await stripe.invoices.list({
+          subscription: subscription.id,
+          limit: 1,
+          status: 'paid'
+        });
+        const invoice = invoices.data[0];
+        if (invoice) {
+          let receiptUrl = invoice.hosted_invoice_url;
+          let paymentId = invoice.id;
+
+          // Check if payment already exists
+          const existingPayment = await Payment.findOne({
+            where: { stripe_payment_id: paymentId }
+          });
+
+          if (!existingPayment) {
+            // Find the latest unpaid contribution for this member and mahber
+            const contribution = await MahberContribution.findOne({
+              where: {
+                member_id: member.member_id,
+                mahber_id: member.edir_id,
+                status: 'unpaid'
+              },
+              order: [['period_number', 'ASC']]
+            });
+
+            if (contribution) {
+              await Payment.create({
+                stripe_payment_id: String(paymentId),
+                receipt_url: String(receiptUrl),
+                method: 'subscription',
+                contribution_id: contribution.id,
+                member_id: Number(member.member_id),
+                amount: Number(invoice.amount_paid) / 100,
+                status: 'paid'
+              });
+              await contribution.update({ status: 'paid', amount_paid: Number(invoice.amount_paid) / 100 });
+              console.log(`Created payment record for member ${member.id}, contribution ${contribution.id}`);
+            } else {
+              console.log(`No unpaid contribution found for member ${member.id}, mahber ${member.edir_id}`);
+            }
+          } else {
+            console.log(`Payment ${paymentId} already recorded for member ${member.id}`);
+          }
+        } else {
+          console.log(`No paid invoices found for subscription ${subscription.id} (member ${member.id})`);
+        }
+      }
+    } catch (err) {
+      console.error(`Error syncing payment for member ${member.id}:`, err);
+    }
+  }
+  console.log('Scheduled Stripe subscription payment sync completed.', Date.now());
+});
+
+/**
+ * Scheduler to sync Stripe one time payments
+ * This runs every 1 hour at minute 0.
+ * It checks for members with one-time payments and retrieves their latest paid invoice and charge
+ * to ensure that their payment info is up-to-date.
+ */
+cron.schedule('0 */2 * * *', async () => {
+    console.log('Running scheduled Stripe one-time payment sync...');
+    
+    const payments = await Payment.findAll({
+        where: {
+            method: 'one-time',
+            status: 'pending'
+        }
+    });
+    for (const payment of payments) {
+        const session = await stripe.checkout.sessions.retrieve(
+            payment.stripe_payment_id,
+            {
+                expand: ['payment_intent', 'subscription'],
+            }
+        );
+        if (session.payment_intent) {
+            const paymentIntent = session.payment_intent as Stripe.PaymentIntent;
+            console.log(`Processing payment intent ${paymentIntent.id} for session ${session.id}`);
+            console.log(`Payment intent status: ${paymentIntent.status}`);
+
+            let receiptUrl = session.url || null;
+            if (paymentIntent.id) {
+                const chargesList = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
+                if (chargesList.data.length > 0) {
+                    receiptUrl = chargesList.data[0].receipt_url || receiptUrl;
+                }
+            }
+            console.log(`Receipt URL: ${receiptUrl}`);
+            if (paymentIntent.status === 'succeeded' && (receiptUrl || '').trim() !== '' && receiptUrl) {
+                // Update payment record
+                await Payment.update(
+                    { status: 'paid', receipt_url: receiptUrl || '', stripe_payment_id: paymentIntent.id },
+                    { where: { id: payment.id } }
+                );
+                console.log(`Updated payment ${payment.id} to paid.`);
+            } else {
+                console.log(`Payment intent ${paymentIntent.id} not succeeded yet.`);
+            }
+        }
+    }
+
+    console.log('Scheduled Stripe one-time payment sync completed.', Date.now());
 });

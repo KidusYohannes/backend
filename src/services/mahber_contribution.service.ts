@@ -29,8 +29,8 @@ export async function createInitialContributions(
 
   // Create a contribution row for each member
   const contributions = await Promise.all(
-    memberIds.map(member_id =>
-      MahberContribution.create({
+    memberIds.map(async member_id => {
+      const contrib = await MahberContribution.create({
         mahber_id,
         member_id,
         period_number: startPeriodNumber,
@@ -39,8 +39,16 @@ export async function createInitialContributions(
         amount_paid: 0,
         status: 'unpaid',
         period_start_date: periodStartDate
-      })
-    )
+      });
+      // Send recurring payment notice email
+      const user = await User.findByPk(member_id);
+      const mahber = await Mahber.findByPk(mahber_id);
+      if (user && mahber) {
+        const email = generateRecurringPaymentNoticeEmail(user, mahber, term.amount, periodStartDate);
+        await sendEmailHtml(user.email, email.subject, email.html);
+      }
+      return contrib;
+    })
   );
   return contributions;
 }

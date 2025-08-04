@@ -10,9 +10,12 @@ import {
 import { generateForgotPasswordEmail } from './email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust import if needed
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
+const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const REFRESH_TOKEN_EXPIRES_IN = '7d';
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -43,8 +46,9 @@ export const login = async (req: Request, res: Response) => {
     user.stripe_id = stripeCustomer.id;
   }
 
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
-  res.json({ token });
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+  const refreshToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
+  res.json({ token, refreshToken });
 };
 
 
@@ -86,8 +90,12 @@ export const forgotPassword = async (req: Request, res: Response) => {
     res.status(404).json({ message: 'User not found' });
     return;
   }
-  // Generate token and expiration
-  const token = crypto.randomBytes(32).toString('hex');
+  // Generate 6-character uppercase alphanumeric token
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let token = '';
+  for (let i = 0; i < 6; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   const expiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
   await updateUser(user.id, { link_token: token, token_expiration: expiration.toISOString() });
   const emailContent = generateForgotPasswordEmail(user, token);
@@ -98,6 +106,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   const { email, token, newPassword } = req.body;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
   if (!email || !token || !newPassword) {
     res.status(400).json({ message: 'Email, token, and new password are required' });
     return;
@@ -116,6 +125,27 @@ export const resetPassword = async (req: Request, res: Response) => {
     return;
   }
   // Update password and clear token
-  await updateUser(user.id, { password: newPassword, link_token: '', token_expiration: '' });
+  await updateUser(user.id, { password: hashedPassword, link_token: '', token_expiration: '' });
   res.json({ message: 'Password reset successful' });
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    res.status(400).json({ message: 'Refresh token required' });
+    return;
+  }
+  try {
+    const payload = jwt.verify(refreshToken, JWT_SECRET) as { userId: number };
+    // Optionally, check if user still exists and is active
+    const user = await findUserByEmail(String(payload.userId));
+    if (!user || user.status !== 'accepted' || user === undefined) {
+      res.status(401).json({ message: 'Invalid user' });
+      return;
+    }
+    const newAccessToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    res.status(401).json({ message: 'Invalid or expired refresh token' });
+  }
 };

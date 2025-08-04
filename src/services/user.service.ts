@@ -13,8 +13,13 @@ let users: User[] = [];
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 function generateToken(length = 6): string {
-  // Generates a 6-character alphanumeric token
-  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase();
+  // Generate 6-character uppercase alphanumeric token
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let token = '';
+  for (let i = 0; i < 6; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
 }
 
 export const getAllUsers = async (): Promise<User[]> => {

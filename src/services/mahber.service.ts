@@ -177,14 +177,19 @@ export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
   const mahberList = mahbers.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
 
-  // Map status from member to mahber in the response
+  // Map status and payment method from member to mahber in the response
   const statusMap: Record<number, string> = {};
-  members.forEach(m => { statusMap[Number(m.edir_id)] = m.status; });
+  const paymentMethodMap: Record<number, string> = {};
+  members.forEach(m => {
+    statusMap[Number(m.edir_id)] = m.status;
+    paymentMethodMap[Number(m.edir_id)] = m.stripe_subscription_id ? 'subscription' : 'one_time';
+  });
 
   return mahberList.map(m => ({
     ...m,
     memberStatus: statusMap[m.id] || null,
-    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 }
+    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 },
+    payment_method: paymentMethodMap[m.id] || 'one_time'
   }));
 };
 

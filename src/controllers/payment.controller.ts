@@ -6,6 +6,7 @@ import { getMahberById, updateMahber } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
+import { Member } from '../models/member.model';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -274,5 +275,36 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
   } catch (error) {
     console.error('Error creating subscription:', error);
     res.status(500).json({ message: 'Failed to create subscription: ' + error });
+  }
+};
+
+// Unsubscribe from Mahber subscription
+// remove stripe subscription id from member record
+export const unsubscribeFromMahberSubscription = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const mahberId = Number(req.params.id);
+  const member = await Member.findOne({
+    where: {
+      member_id: String(req.user.id),
+      edir_id: String(mahberId),
+      status: 'accepted'
+    }
+  });
+  if (!member || !member.stripe_subscription_id) {
+    res.status(400).json({ message: 'No active Stripe subscription found for this member and Mahber.' });
+    return;
+  }
+  try {
+    // Cancel the Stripe subscription
+    await stripe.subscriptions.cancel(String(member.stripe_subscription_id));
+    // Optionally, clear the subscription ID from the member record
+    await member.update({ stripe_subscription_id: '' });
+    res.json({ message: 'Successfully unsubscribed from Mahber Stripe subscription.' });
+  } catch (error: any) {
+    console.error('Error unsubscribing from Stripe subscription:', error);
+    res.status(500).json({ message: error.message || 'Failed to unsubscribe from Stripe subscription.' });
   }
 };
