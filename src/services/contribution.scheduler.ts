@@ -4,9 +4,7 @@ import { Member } from "../models/member.model";
 import { MahberContributionTerm } from "../models/mahber_contribution_term.model";
 import { MahberContribution } from "../models/mahber_contribution.model";
 import { Op } from "sequelize";
-import { generateRecurringPaymentNoticeEmail } from '../controllers/email.controller';
-import { sendEmailHtml } from '../services/email.service';
-import { User } from "../models/user.model";
+import { createNewContributionPeriod } from './mahber_contribution.service'; // Import the service function
 
 // Helper to calculate next period start date
 function getNextPeriodDate(current: Date, frequency: number, unit: string): Date {
@@ -40,6 +38,7 @@ cron.schedule('0 1 * * *', async () => {
     });
     if (!term) continue;
     const members = await Member.findAll({ where: { edir_id: mahber.id, status: 'accepted' } });
+    const memberIds = members.map(m => Number(m.member_id));
     // Find last period number and start date
     const lastContribution = await MahberContribution.findOne({
       where: { mahber_id: mahber.id },
@@ -47,32 +46,15 @@ cron.schedule('0 1 * * *', async () => {
     });
     const nextPeriodNumber = lastContribution ? (lastContribution.period_number || 0) + 1 : 1;
     const lastStartDate = lastContribution ? new Date(lastContribution.period_start_date as string) : new Date(term.effective_from);
-    const nextStartDate = getNextPeriodDate(lastStartDate, term.frequency, term.unit);
-    // Create contributions for next period
-    for (const member of members) {
-      const exists = await MahberContribution.findOne({
-        where: { mahber_id: mahber.id, member_id: member.member_id, period_number: nextPeriodNumber }
-      });
-      if (!exists) {
-        const contribution = await MahberContribution.create({
-          mahber_id: mahber.id,
-          member_id: Number(member.member_id),
-          period_number: nextPeriodNumber,
-          contribution_term_id: term.id,
-          amount_due: term.amount,
-          amount_paid: 0,
-          status: 'unpaid',
-          period_start_date: nextStartDate.toISOString().slice(0, 10)
-        });
-        // Send recurring payment notice email
-        const user = await User.findByPk(member.member_id);
-        const mahberObj = mahber; // already fetched
-        if (user && mahberObj) {
-          const email = generateRecurringPaymentNoticeEmail(user, mahberObj, term.amount, nextStartDate.toISOString().slice(0, 10));
-          await sendEmailHtml(user.email, email.subject, email.html);
-        }
-      }
-    }
+    const nextStartDate = getNextPeriodDate(lastStartDate, term.frequency, term.unit).toISOString().slice(0, 10);
+
+    // Use the service function to create contributions for the next period
+    await createNewContributionPeriod(
+      mahber.id,
+      memberIds,
+      nextPeriodNumber,
+      nextStartDate
+    );
   }
   console.log('Contribution pre-generation completed.');
 });
