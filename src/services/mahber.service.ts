@@ -8,6 +8,7 @@ import { Sequelize } from 'sequelize';
 import { generateContributionChangeNoticeEmail } from '../controllers/email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project structure
 import { User } from '../models/user.model';
+import { MahberContribution } from '../models/mahber_contribution.model';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
@@ -151,10 +152,39 @@ export const getMahbersByUser = async (userId: number): Promise<any[]> => {
   const mahbers = await Mahber.findAll({ where: { created_by: userId } });
   const mahberList = mahbers.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
-  return mahberList.map(m => ({
-    ...m,
-    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 }
-  }));
+
+  // For each Mahber, calculate potential and paid contributions for the current period
+  const result = await Promise.all(
+    mahberList.map(async m => {
+      // Find the latest period number for this Mahber
+      const latestContribution = await MahberContribution.findOne({
+        where: { mahber_id: m.id },
+        order: [['period_number', 'DESC']]
+      });
+      const currentPeriod = latestContribution ? latestContribution.period_number : null;
+
+      // Potential: sum of amount_due for current period
+      // Paid: sum of amount_paid for current period
+      let potential_contribution = 0;
+      let paid_contribution = 0;
+      if (currentPeriod !== null) {
+        const contributions = await MahberContribution.findAll({
+          where: { mahber_id: m.id, period_number: currentPeriod }
+        });
+        potential_contribution = contributions.reduce((sum, c) => sum + Number(c.amount_due || 0), 0);
+        paid_contribution = contributions.reduce((sum, c) => sum + Number(c.amount_paid || 0), 0);
+      }
+
+      return {
+        ...m,
+        memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 },
+        potential_contribution,
+        paid_contribution
+      };
+    })
+  );
+
+  return result;
 };
 
 export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
