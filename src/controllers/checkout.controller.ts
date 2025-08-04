@@ -22,8 +22,8 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
   if (!mahber) {
     return res.status(404).json({ message: 'Mahber not found' });
   }
-  if (!mahber.stripe_account_id) {
-    return res.status(400).json({ message: 'Stripe account not set up for this Mahber' });
+  if (!mahber.stripe_account_id || mahber.stripe_status !== 'active') {
+    return res.status(400).json({ message: 'Mahber Stripe account is not active. Please finish onboarding before making payments.' });
   }
 
   const user = await getUserById(Number(req.user.id));

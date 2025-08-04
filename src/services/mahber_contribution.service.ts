@@ -54,7 +54,7 @@ export async function createInitialContributions(
 }
 
 /**
- * Create new contribution periods for all active members of a Mahber.
+ * Create new contribution period for all active members of a Mahber.
  * @param mahber_id The Mahber ID
  * @param memberIds Array of user IDs who are members
  * @param periodNumber The new period number
@@ -115,6 +115,7 @@ export async function createFirstContributionForMember(
     // Validate Mahber exists
     const mahber = await Mahber.findByPk(mahber_id, { transaction: t });
     if (!mahber) throw new Error('Mahber not found');
+    if (mahber.stripe_status !== 'active') throw new Error('Mahber Stripe account is not active. Please finish onboarding before generating contributions.');
 
     // Validate User exists
     const user = await User.findByPk(member_id, { transaction: t });

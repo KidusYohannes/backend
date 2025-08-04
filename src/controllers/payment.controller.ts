@@ -93,8 +93,8 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
     res.status(404).json({ message: 'Mahber not found' });
     return;
   }
-  if (!mahber.stripe_account_id) {
-    res.status(400).json({ message: 'Stripe account not set up for this Mahber' });
+  if (!mahber.stripe_account_id || mahber.stripe_status !== 'active') {
+    res.status(400).json({ message: 'Mahber Stripe account is not active. Please finish onboarding before making payments.' });
     return;
   }
 
@@ -191,8 +191,8 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
     res.status(404).json({ message: 'Mahber not found' });
     return;
   }
-  if (!mahber.stripe_account_id) {
-    res.status(400).json({ message: 'Stripe account not set up for this Mahber' });
+  if (!mahber.stripe_account_id || mahber.stripe_status !== 'active') {
+    res.status(400).json({ message: 'Mahber Stripe account is not active. Please finish onboarding before making payments.' });
     return;
   }
 

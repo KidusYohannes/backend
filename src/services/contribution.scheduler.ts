@@ -30,6 +30,10 @@ cron.schedule('0 1 * * *', async () => {
   console.log('Running contribution pre-generation...');
   const mahbers = await Mahber.findAll();
   for (const mahber of mahbers) {
+    if (mahber.stripe_status !== 'active') {
+      console.log(`Skipping Mahber ${mahber.id} (${mahber.name}): Stripe account not active.`);
+      continue;
+    }
     const term = await MahberContributionTerm.findOne({
       where: { mahber_id: mahber.id, status: 'active' },
       order: [['effective_from', 'DESC']]
