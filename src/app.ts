@@ -4,6 +4,7 @@ import mahiberRoutes from './routes/mahber.routes';
 import memberRoutes from './routes/member.routes';
 import authRoutes from './routes/auth.routes';
 import paymentRoutes from './routes/payment.routes';
+import contributionRoute from './routes/contribution.route';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -36,6 +37,7 @@ app.use('/mahber', mahiberRoutes);
 app.use('/members', memberRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/', authRoutes);
+app.use('/contributions', contributionRoute);
 
 // Error handler to avoid leaking stack traces
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
