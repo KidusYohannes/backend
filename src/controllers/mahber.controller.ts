@@ -19,20 +19,25 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
   try {
     // Allow contribution fields to be optional (default to empty string if missing)
     // Default visibility to 'public' unless specified
+    // Ensure not-null columns have empty string if missing
     const payload = {
       ...req.body,
       created_by: req.user.id,
-      country: req.body.country,
-      state: req.body.state,
-      city: req.body.city,
-      address: req.body.address,
-      zip_code: req.body.zip_code,
+      country: req.body.country || '',
+      state: req.body.state || '',
+      city: req.body.city || '',
+      address: req.body.address || '',
+      zip_code: req.body.zip_code || '',
       contribution_unit: req.body.contribution_unit || '',
       contribution_frequency: req.body.contribution_frequency || '',
       contribution_amount: req.body.contribution_amount || '',
       contribution_start_date: req.body.contribution_start_date || '',
       affiliation: req.body.affiliation || '',
-      visibility: req.body.visibility || 'public'
+      visibility: req.body.visibility || 'public',
+      stripe_account_id: req.body.stripe_account_id || '',
+      stripe_product_id: req.body.stripe_product_id || '',
+      stripe_price_id: req.body.stripe_price_id || '',
+      stripe_status: req.body.stripe_status || ''
     };
 
     let mahber, contributionTerm;
@@ -207,3 +212,46 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     accountLinkUrl: accountLink.url
   }); 
 }
+
+/**
+ * Get all mahbers with the authenticated user's standing (invited, accepted, rejected, left, or none).
+ * Supports search, pagination.
+ */
+export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+
+  // Get all mahbers (public only)
+  const result = await getAllMahbers(search, page, perPage);
+
+  // Get member records for this user
+  const userId = String(req.user.id);
+  // Ensure edir_id is string for comparison
+  const mahberIds = result.data.map((m: any) => String(m.id));
+  const memberRecords = await Member.findAll({
+    where: {
+      member_id: userId,
+      edir_id: { [Op.in]: mahberIds }
+    }
+  });
+  const memberMap: Record<string, string> = {};
+  memberRecords.forEach(m => {
+    memberMap[String(m.edir_id)] = m.status;
+  });
+
+  // Attach user standing to each mahber
+  const dataWithStanding = result.data.map((m: any) => ({
+    ...m,
+    userStanding: memberMap[String(m.id)] || 'none'
+  }));
+
+  res.json({
+    ...result,
+    data: dataWithStanding
+  });
+};

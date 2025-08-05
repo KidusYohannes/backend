@@ -12,6 +12,7 @@ router.post('/request/respond', authenticateToken, memberController.respondToJoi
 router.post('/ban', authenticateToken, memberController.banMember);
 router.post('/unban', authenticateToken, memberController.unbanMember);
 
+
 // Leave a mahber (authenticated member)
 router.post(
   '/leave',
@@ -37,6 +38,13 @@ router.get(
 	  next(err);
 	}
   }
+);
+
+// Change member role (admin <-> member, not for creator)
+router.post(
+  '/role/change',
+  authenticateToken,
+  memberController.changeMemberRole
 );
 
 export default router;

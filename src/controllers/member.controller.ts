@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Member } from '../models/member.model';
 import { User } from '../models/user.model';
 import { Op } from 'sequelize';
+import { Mahber } from '../models/mahber.model';
 
 // Helper to resolve user_id from id or email
 async function resolveUserId(user_id?: string, user_email?: string): Promise<string | null> {
@@ -190,6 +191,48 @@ export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) =
       page: Number(page),
       perPage: Number(perPage)
     });
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+/**
+ * Change the role of a member (admin <-> member), but not for the creator.
+ * Expects: { edir_id, user_id, new_role }
+ * Only admins should be able to call this.
+ */
+export const changeMemberRole = async (req: AuthenticatedRequest, res: Response) => {
+  const user_id = await resolveUserId(req.body.user_id, req.body.user_email)
+  const { edir_id, new_role } = req.body;
+  if (!edir_id || !user_id || !new_role) {
+    res.status(400).json({ message: 'edir_id, user_id, and new_role are required.' });
+    return;
+  }
+  try {
+    // Find the Mahber and check creator
+    const mahber = await Mahber.findByPk(edir_id);
+    if (!mahber) {
+      res.status(404).json({ message: 'Mahber not found.' });
+      return;
+    }
+    if (String(mahber.created_by) === String(user_id)) {
+      res.status(403).json({ message: 'Cannot change role of the creator.' });
+      return;
+    }
+    // Find the member
+    const member = await Member.findOne({
+      where: {
+        edir_id: String(edir_id),
+        member_id: String(user_id)
+      }
+    });
+    if (!member) {
+      res.status(404).json({ message: 'Member not found.' });
+      return;
+    }
+    member.role = new_role;
+    await member.save();
+    res.json({ message: `Role updated to ${new_role}.`, member });
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }

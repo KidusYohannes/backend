@@ -14,7 +14,7 @@ import bcrypt from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
-const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const ACCESS_TOKEN_EXPIRES_IN = '30m';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
 
 export const login = async (req: Request, res: Response) => {
