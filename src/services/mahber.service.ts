@@ -233,7 +233,10 @@ export const getAllMahbers = async (
   page: number = 1,
   perPage: number = 10
 ): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
-  const where: any = {};
+  
+  const where: any = {
+    visibility: { [Op.ne]: 'private' }
+  };
 
   if (search) {
     where[Op.or] = [

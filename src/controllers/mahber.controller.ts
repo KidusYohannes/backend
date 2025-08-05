@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { getUserById } from '../services/user.service';
+import { Op } from 'sequelize';
 dotenv.config();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -16,6 +17,8 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
     return;
   }
   try {
+    // Allow contribution fields to be optional (default to empty string if missing)
+    // Default visibility to 'public' unless specified
     const payload = {
       ...req.body,
       created_by: req.user.id,
@@ -23,9 +26,28 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       state: req.body.state,
       city: req.body.city,
       address: req.body.address,
-      zip_code: req.body.zip_code
+      zip_code: req.body.zip_code,
+      contribution_unit: req.body.contribution_unit || '',
+      contribution_frequency: req.body.contribution_frequency || '',
+      contribution_amount: req.body.contribution_amount || '',
+      contribution_start_date: req.body.contribution_start_date || '',
+      affiliation: req.body.affiliation || '',
+      visibility: req.body.visibility || 'public'
     };
-    const { mahber, contributionTerm } = await createMahberWithContributionTerm(payload);
+
+    let mahber, contributionTerm;
+    // Only create contribution term if contribution fields are provided (not empty)
+    if (
+      payload.contribution_unit &&
+      payload.contribution_frequency &&
+      payload.contribution_amount &&
+      payload.contribution_start_date
+    ) {
+      ({ mahber, contributionTerm } = await createMahberWithContributionTerm(payload));
+    } else {
+      mahber = await Mahber.create(payload);
+      contributionTerm = null;
+    }
 
     // Add creator as first member with admin role
     await Member.create({
@@ -64,6 +86,7 @@ export const getMahbers = async (req: Request, res: Response) => {
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
 
+  // Only get mahbers with visibility 'public'
   const result = await getAllMahbers(search, page, perPage);
   res.json(result);
 };
