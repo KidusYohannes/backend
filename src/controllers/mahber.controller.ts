@@ -31,7 +31,6 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       contribution_unit: req.body.contribution_unit || '',
       contribution_frequency: req.body.contribution_frequency || '',
       contribution_amount: req.body.contribution_amount || '',
-      contribution_start_date: req.body.contribution_start_date || '',
       affiliation: req.body.affiliation || '',
       visibility: req.body.visibility || 'public',
       stripe_account_id: req.body.stripe_account_id || '',
@@ -62,7 +61,15 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       status: 'accepted'
     });
 
-    res.status(201).json({ mahber, contributionTerm });
+    res.status(201).json({
+      mahber,
+      contributionTerm: contributionTerm
+        ? {
+            ...contributionTerm.toJSON(),
+            amount: Number(contributionTerm.amount)
+          }
+        : null
+    });
   } catch (err: any) {
     res.status(400).json({ message: err.message || 'Failed to create mahber' });
   }
