@@ -56,10 +56,13 @@ export const getContributionsForUser = async (req: AuthenticatedRequest, res: Re
     res.status(401).json({ message: 'Unauthorized' });
     return
   }
-  const { status, page = 1, perPage = 10 } = req.query;
+  const { status, mahber_id, page = 1, perPage = 10 } = req.query;
   const where: any = { member_id: req.user.id };
   if (status === 'unpaid' || status === 'paid') {
     where.status = status;
+  }
+  if (mahber_id) {
+    where.mahber_id = Number(mahber_id);
   }
   try {
     const { rows, count } = await MahberContribution.findAndCountAll({
