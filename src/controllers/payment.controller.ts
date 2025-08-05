@@ -290,7 +290,7 @@ export const unsubscribeFromMahberSubscription = async (req: AuthenticatedReques
     where: {
       member_id: String(req.user.id),
       edir_id: String(mahberId),
-      status: 'accepted'
+      // status: 'accepted'
     }
   });
   if (!member || !member.stripe_subscription_id) {

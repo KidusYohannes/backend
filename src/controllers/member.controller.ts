@@ -117,13 +117,17 @@ export const leaveMahber = async (req: AuthenticatedRequest, res: Response) => {
 
 export const getMahberMembers = async (req: AuthenticatedRequest, res: Response) => {
   const mahberId = req.params.id;
+  const { page = 1, perPage = 10 } = req.query;
   try {
-    // Get all members for the mahber, excluding those who left
-    const members = await Member.findAll({
+    // Get all members for the mahber, excluding those who left, paginated
+    const { rows: members, count } = await Member.findAndCountAll({
       where: {
         edir_id: mahberId,
         status: { [Op.not]: 'left' }
-      }
+      },
+      offset: (Number(page) - 1) * Number(perPage),
+      limit: Number(perPage),
+      order: [['id', 'DESC']]
     });
 
     // Get user details for all member_ids
@@ -140,21 +144,30 @@ export const getMahberMembers = async (req: AuthenticatedRequest, res: Response)
       user: userMap.get(m.member_id) || null
     }));
 
-    res.json(membersWithUser);
+    res.json({
+      data: membersWithUser,
+      total: count,
+      page: Number(page),
+      perPage: Number(perPage)
+    });
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }
 };
 
 export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) => {
-  const mahberId = req.params.id;
+  const mahberId = req.body.edir_id;
+  const { page = 1, perPage = 10 } = req.query;
   try {
-    // Get all members who left the mahber
-    const members = await Member.findAll({
+    // Get all members who left the mahber, paginated
+    const { rows: members, count } = await Member.findAndCountAll({
       where: {
         edir_id: mahberId,
         status: 'left'
-      }
+      },
+      offset: (Number(page) - 1) * Number(perPage),
+      limit: Number(perPage),
+      order: [['id', 'DESC']]
     });
 
     // Get user details for all member_ids
@@ -171,8 +184,13 @@ export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) =
       user: userMap.get(m.member_id) || null
     }));
 
-    res.json(membersWithUser);
+    res.json({
+      data: membersWithUser,
+      total: count,
+      page: Number(page),
+      perPage: Number(perPage)
+    });
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }
-}
+};

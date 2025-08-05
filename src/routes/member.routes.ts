@@ -12,6 +12,20 @@ router.post('/request/respond', authenticateToken, memberController.respondToJoi
 router.post('/ban', authenticateToken, memberController.banMember);
 router.post('/unban', authenticateToken, memberController.unbanMember);
 
+// Leave a mahber (authenticated member)
+router.post(
+  '/leave',
+  authenticateToken,
+  memberController.leaveMahber
+);
+
+// Get all members who left a mahber (admin/creator access recommended)
+router.get(
+  '/left',
+  authenticateToken,
+  memberController.getLeftMembers
+);
+
 // Get all unpaid contributions for the authenticated user
 router.get(
   '/contributions/unpaid',
