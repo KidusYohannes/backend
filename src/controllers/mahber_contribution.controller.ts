@@ -5,6 +5,43 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { WhereOptions, Op } from 'sequelize';
 import { Mahber } from '../models/mahber.model';
 import { User } from '../models/user.model';
+import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
+
+function getPeriodName(startDate: Date, unit: string): string {
+  const options: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
+  switch (unit) {
+    case 'month':
+      return startDate.toLocaleDateString('en-US', options);
+    case 'week': {
+      const weekNumber = getWeekNumber(startDate);
+      return `${startDate.getFullYear()} Week ${weekNumber}`;
+    }
+    case 'year':
+      return `${startDate.getFullYear()}`;
+    case 'day':
+      return startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    case 'quarter': {
+      const quarter = Math.floor(startDate.getMonth() / 3) + 1;
+      return `Q${quarter} ${startDate.getFullYear()}`;
+    }
+    default:
+      return startDate.toLocaleDateString('en-US', options);
+  }
+}
+function getWeekNumber(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((days + start.getDay() + 1) / 7);
+}
+
+async function getContributionTermUnit(mahber_id: number) {
+  const term = await MahberContributionTerm.findOne({
+    where: { mahber_id, status: 'active' },
+    order: [['effective_from', 'DESC']]
+  });
+  if (!term) return 'month'; // Default to month if no active term found
+  return term.unit; // Return the unit of the active contribution term
+}
 
 /**
  * Create initial contributions for a new Mahber.
@@ -29,6 +66,7 @@ export const createInitialContributionsController = async (req: Request, res: Re
  * Create a new contribution period for all members.
  * Expects: { mahber_id, memberIds, periodNumber, periodStartDate }
  */
+
 export const createNewContributionPeriodController = async (req: Request, res: Response) => {
   const { mahber_id, memberIds, periodNumber, periodStartDate } = req.body;
   try {
@@ -76,6 +114,10 @@ export const getContributionsForUser = async (req: AuthenticatedRequest, res: Re
     const mahberIds = Array.from(new Set(rows.map(c => c.mahber_id))).filter((id): id is number => typeof id === 'number');
     const mahbers = await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } });
     const mahberMap = new Map(mahbers.map(m => [m.id, m.name]));
+    // mahber id to contribution term unit
+    const contributionTermUnits = await Promise.all(
+      mahberIds.map(id => getContributionTermUnit(id))
+    );
 
     const user = await User.findByPk(req.user.id);
 
@@ -83,6 +125,7 @@ export const getContributionsForUser = async (req: AuthenticatedRequest, res: Re
       ...c.toJSON(),
       mahber_name: c.mahber_id !== undefined ? mahberMap.get(c.mahber_id) || null : null,
       user_name: user ? user.full_name : null,
+      period_name: getPeriodName(new Date(c.period_start_date as string), contributionTermUnits[mahberIds.indexOf(Number(c.mahber_id))]),
       user_email: user ? user.email : null
     }));
 
@@ -141,10 +184,14 @@ export const getMahberContributionHistory = async (req: AuthenticatedRequest, re
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
     const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
 
+    // mahber id to contribution term unit
+    const contributionTermUnits = await getContributionTermUnit(mahber_id);
+
     const data = rows.map(c => ({
       ...c.toJSON(),
       mahber_name: mahber ? mahber.name : null,
       user_name: typeof c.member_id === 'number' ? userMap.get(c.member_id)?.name || null : null,
+      period_name: getPeriodName(new Date(c.period_start_date as string), contributionTermUnits),
       user_email: typeof c.member_id === 'number' ? userMap.get(c.member_id)?.email || null : null
     }));
 
@@ -181,11 +228,13 @@ export const getMahberCurrentMonthContributions = async (req: AuthenticatedReque
     const userIds = Array.from(new Set(rows.map(c => c.member_id))).filter((id): id is number => typeof id === 'number');
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
     const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
+    const contributionTermUnits = await getContributionTermUnit(mahber_id);
 
     const data = rows.map(c => ({
       ...c.toJSON(),
       mahber_name: mahber ? mahber.name : null,
       user_name: typeof c.member_id === 'number' ? userMap.get(c.member_id)?.name || null : null,
+      period_name: getPeriodName(new Date(c.period_start_date as string), contributionTermUnits),
       user_email: typeof c.member_id === 'number' ? userMap.get(c.member_id)?.email || null : null
     }));
 

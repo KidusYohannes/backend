@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { createOneTimePayment, createSubscriptionPayment, getOnboardingLink, unsubscribeFromMahberSubscription } from '../controllers/payment.controller';
+import {
+  createOneTimePayment,
+  createSubscriptionPayment,
+  getOnboardingLink,
+  unsubscribeFromMahberSubscription,
+  getUserPaymentReports,
+  getMahberPaymentReports,
+  getMahberCurrentMonthPayments
+} from '../controllers/payment.controller';
 import { createCheckoutPayment } from '../controllers/checkout.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -25,5 +33,14 @@ router.post(
 	  Promise.resolve(createCheckoutPayment(req, res)).catch(next);
   }
 );
+
+// User payment reports (paginated, descending order)
+router.get( '/reports/my', authenticateToken, getUserPaymentReports );
+
+// Mahber payment reports (paginated, descending order)
+router.get( '/reports/mahber/:mahber_id', authenticateToken, getMahberPaymentReports );
+
+// Mahber current month payment reports (paginated, descending order)
+router.get( '/reports/mahber/:mahber_id/current-month', authenticateToken, getMahberCurrentMonthPayments );
 
 export default router;

@@ -7,6 +7,9 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Member } from '../models/member.model';
+import { Mahber } from '../models/mahber.model';
+import { User } from '../models/user.model';
+import { Op } from 'sequelize';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -306,5 +309,218 @@ export const unsubscribeFromMahberSubscription = async (req: AuthenticatedReques
   } catch (error: any) {
     console.error('Error unsubscribing from Stripe subscription:', error);
     res.status(500).json({ message: error.message || 'Failed to unsubscribe from Stripe subscription.' });
+  }
+};
+
+/**
+ * Get payment reports for the authenticated user (paginated, descending order).
+ * Query params:
+ *   - page: number (default 1)
+ *   - perPage: number (default 10)
+ */
+export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const { mahber_id, page = 1, perPage = 10 } = req.query;
+  try {
+    // Find all contributions for this user, optionally filter by mahber_id
+    let contributionWhere: any = { member_id: req.user.id };
+    if (mahber_id) {
+      contributionWhere.mahber_id = String(mahber_id); // Ensure string for comparison
+    }
+    const contributions = await MahberContribution.findAll({ where: contributionWhere });
+    const contributionIds = contributions.map(c => String(c.id));
+
+    // Find payments for these contributions
+    const paymentWhere: any = {};
+    if (contributionIds.length > 0) {
+      paymentWhere.contribution_id = { [Op.in]: contributionIds };
+    } else {
+      // If no contributions, return empty result
+      res.json({
+        data: [],
+        total: 0,
+        page: Number(page),
+        perPage: Number(perPage)
+      });
+      return;
+    }
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where: paymentWhere,
+      offset: (Number(page) - 1) * Number(perPage),
+      limit: Number(perPage),
+      order: [['id', 'DESC']]
+    });
+
+    // Fetch Mahber and User info for each payment
+    const mahberIds = Array.from(new Set(contributions.map(c => c.mahber_id))).filter((id): id is number => typeof id === 'number');
+    console.log('Mahber IDs:', mahberIds);
+    const mahbers = await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } });
+    const mahberMap = new Map(mahbers.map(m => [m.id, m.name]));
+    console.log('Mahber Map:', mahberMap);
+    const contributionMap = new Map(contributions.map(c => [c.id, c.mahber_id]));
+    console.log('Contribution Map:', contributionMap);
+
+    const user = await User.findByPk(req.user.id);
+
+    const data = rows.map(p => {
+      const mahberId = contributionMap.get(Number(p.contribution_id));
+      return {
+        ...p.toJSON(),
+        mahber_id: typeof mahberId === 'number' ? mahberId : null,
+        mahber_name: typeof mahberId === 'number' ? mahberMap.get(mahberId) || null : null,
+        user_name: user ? user.full_name : null,
+        user_email: user ? user.email : null
+      };
+    });
+
+    res.json({
+      data,
+      total: count,
+      page: Number(page),
+      perPage: Number(perPage)
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Get all payment reports for a Mahber (paginated, descending order).
+ * Query params: page, perPage
+ * Only accessible by Mahber admin/creator (check in route/controller).
+ */
+export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Response) => {
+  const mahber_id = Number(req.params.mahber_id);
+  const { page = 1, perPage = 10 } = req.query;
+  try {
+    // Check if user is creator or admin of the mahber
+    const mahber = await Mahber.findByPk(mahber_id);
+    if (!mahber) {
+      res.status(404).json({ message: 'Mahber not found' });
+      return;
+    }
+    const userId = String(req.user?.id);
+    const isCreator = String(mahber.created_by) === userId;
+    const isAdmin = await Member.findOne({
+      where: {
+        edir_id: String(mahber_id),
+        member_id: userId,
+        role: 'admin',
+        status: 'accepted'
+      }
+    });
+    if (!isCreator && !isAdmin) {
+      res.status(403).json({ message: 'Forbidden: Only Mahber admins or creator can view payment reports.' });
+      return;
+    }
+
+    // ...existing code for fetching contributions, payments, and formatting response...
+    const contributions = await MahberContribution.findAll({ where: { mahber_id } });
+    const contributionIds = contributions.map(c => c.id);
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where: { contribution_id: { [Op.in]: contributionIds } },
+      offset: (Number(page) - 1) * Number(perPage),
+      limit: Number(perPage),
+      order: [['id', 'DESC']]
+    });
+
+    const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
+    const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
+    const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
+
+    const data = rows.map(p => ({
+      ...p.toJSON(),
+      mahber_id,
+      mahber_name: mahber ? mahber.name : null,
+      user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
+      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
+    }));
+
+    res.json({
+      data,
+      total: count,
+      page: Number(page),
+      perPage: Number(perPage)
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Get current month payment reports for a Mahber (paginated, descending order).
+ * Query params: page, perPage
+ * Only accessible by Mahber admin/creator (check in route/controller).
+ */
+export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, res: Response) => {
+  const mahber_id = Number(req.params.mahber_id);
+  const { page = 1, perPage = 10 } = req.query;
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  try {
+    // Check if user is creator or admin of the mahber
+    const mahber = await Mahber.findByPk(mahber_id);
+    if (!mahber) {
+      res.status(404).json({ message: 'Mahber not found' });
+      return;
+    }
+    const userId = String(req.user?.id);
+    const isCreator = String(mahber.created_by) === userId;
+    const isAdmin = await Member.findOne({
+      where: {
+        edir_id: String(mahber_id),
+        member_id: userId,
+        role: 'admin',
+        status: 'accepted'
+      }
+    });
+    if (!isCreator && !isAdmin) {
+      res.status(403).json({ message: 'Forbidden: Only Mahber admins or creator can view payment reports.' });
+      return;
+    }
+
+    // ...existing code for fetching contributions, payments, and formatting response...
+    const contributions = await MahberContribution.findAll({
+      where: {
+        mahber_id,
+        period_start_date: { [Op.gte]: firstDay, [Op.lte]: lastDay }
+      }
+    });
+    const contributionIds = contributions.map(c => c.id);
+
+    const { rows, count } = await Payment.findAndCountAll({
+      where: { contribution_id: { [Op.in]: contributionIds } },
+      offset: (Number(page) - 1) * Number(perPage),
+      limit: Number(perPage),
+      order: [['id', 'DESC']]
+    });
+
+    // Fetch User info for each payment
+    const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
+    const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
+    const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
+
+    const data = rows.map(p => ({
+      ...p.toJSON(),
+      mahber_id,
+      mahber_name: mahber ? mahber.name : null,
+      user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
+      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
+    }));
+
+    res.json({
+      data,
+      total: count,
+      page: Number(page),
+      perPage: Number(perPage)
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
   }
 };
