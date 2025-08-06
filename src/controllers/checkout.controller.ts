@@ -48,10 +48,21 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
   try {
     if (paymentType === 'subscription') {
-      const { price_id, description } = req.body;
+      const { price_id, description, contribution_id } = req.body;
       if (!price_id) {
         return res.status(400).json({ message: 'Missing price_id for subscription' });
       }
+
+      // If contribution_id is provided, check if already paid
+      if (contribution_id) {
+        const contribution = await MahberContribution.findOne({
+          where: { id: contribution_id }
+        });
+        if (contribution && contribution.status === 'paid') {
+          return res.status(400).json({ message: 'This contribution is already paid.' });
+        }
+      }
+
       // Stripe Checkout Session for subscription (ACH and Card)
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card', 'us_bank_account'],
@@ -77,14 +88,47 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
       // Record payment for subscription (after Stripe webhook or after subscription is confirmed)
       // You may need to handle this in a webhook for full reliability
+      // Optionally, update contribution status to pending if contribution_id is provided
+      if (contribution_id) {
+        const contribution = await MahberContribution.findOne({
+          where: {
+            id: contribution_id
+          }
+        });
+        if (contribution) {
+          contribution.status = 'pending';
+          await contribution.save();
+        }
+        let receipt_url = session.url ?? null;
+        await Payment.create({
+          stripe_payment_id: String(session.payment_intent || session.id),
+          receipt_url: String(receipt_url),
+          method: 'one-time',
+          contribution_id: contribution_id,
+          member_id: req.user.id,
+          amount: req.body.amount,
+          status: 'pending'
+        });
+      }
 
       return res.json({ url: session.url });
     } else {
       // One-time payment
-      const { amount, currency = 'usd', description } = req.body;
+      const { amount, currency = 'usd', description, contribution_id } = req.body;
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return res.status(400).json({ message: 'Invalid amount' });
       }
+
+      // If contribution_id is provided, check if already paid
+      if (contribution_id) {
+        const contribution = await MahberContribution.findOne({
+          where: { id: contribution_id }
+        });
+        if (contribution && contribution.status === 'paid') {
+          return res.status(400).json({ message: 'This contribution is already paid.' });
+        }
+      }
+
       // Stripe Checkout Session for one-time payment (ACH and Card)
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card', 'us_bank_account'],
@@ -118,12 +162,15 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       // Find the latest unpaid contribution for this user and Mahber
       const contribution = await MahberContribution.findOne({
         where: {
-          mahber_id: mahberId,
-          member_id: req.user.id,
-          status: 'unpaid'
+          id: contribution_id
         },
         order: [['period_number', 'DESC']]
       });
+      // Optionally, update contribution status to pending if contribution_id is provided
+      if (contribution) {
+        contribution.status = 'pending';
+        await contribution.save();
+      }
 
       // Record payment in payments table (mahber_payments)
       if (contribution) {

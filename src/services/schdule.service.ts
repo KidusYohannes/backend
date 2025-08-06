@@ -233,7 +233,7 @@ cron.schedule('0 * * * *', async () => {
               where: {
                 member_id: member.member_id,
                 mahber_id: member.edir_id,
-                status: 'unpaid'
+                status: ['pending', 'unpaid']
               },
               order: [['period_number', 'ASC']]
             });
