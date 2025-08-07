@@ -58,7 +58,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
     const mahberFields = {
       name: payload.name,
       created_by: payload.created_by,
-      description: payload.description,
+      description: payload.description || payload.desccription || '', // Accept both keys
       profile: payload.profile, // include profile if present
       stripe_account_id: '',
       stripe_product_id: product.id, // <-- set product id
@@ -92,16 +92,19 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       status: 'active'
     };
 
-    // Create first contribution term for this Mahber
-    const term = await MahberContributionTerm.create(termFields, { transaction: t });
+    console.log(`Created Mahber ${mahber.id} with contribution term starting from ${payload.effective_from}`);
+    console.log(`contribution terms: ${JSON.stringify(termFields)}`);
 
-    // Optionally, update Mahber with the term info if you want to keep it in sync
-    // await mahber.update({
-    //   contribution_unit: term.unit,
-    //   contribution_frequency: term.frequency,
-    //   contribution_amount: term.amount,
-    //   contribution_start_date: term.effective_from
-    // }, { transaction: t });
+    // Only create contribution term if all required fields are present
+    let term = null;
+    if (
+      payload.contribution_amount !== undefined &&
+      payload.contribution_frequency !== undefined &&
+      payload.contribution_unit &&
+      payload.effective_from
+    ) {
+      term = await MahberContributionTerm.create(termFields, { transaction: t });
+    }
 
     return { mahber, contributionTerm: term };
   });

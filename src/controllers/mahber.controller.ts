@@ -36,10 +36,12 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       stripe_account_id: req.body.stripe_account_id || '',
       stripe_product_id: req.body.stripe_product_id || '',
       stripe_price_id: req.body.stripe_price_id || '',
-      stripe_status: req.body.stripe_status || ''
+      stripe_status: req.body.stripe_status || '',
+      contribution_start_date: req.body.effective_from || '',
     };
 
     let mahber, contributionTerm;
+    console.log(`Creating Mahber with payload: ${JSON.stringify(payload)}`);
     // Only create contribution term if contribution fields are provided (not empty)
     if (
       payload.contribution_unit &&

@@ -7,6 +7,7 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { saveStripeSessionId } from '../models/member.model';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
+import { Op } from 'sequelize';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -53,13 +54,24 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         return res.status(400).json({ message: 'Missing price_id for subscription' });
       }
 
-      // If contribution_id is provided, check if already paid
-      if (contribution_id) {
-        const contribution = await MahberContribution.findOne({
-          where: { id: contribution_id }
+      // Parse contribution_id(s)
+      let contributionIds: number[] = [];
+      if (typeof contribution_id === 'string' && contribution_id.trim() !== '') {
+        contributionIds = contribution_id.split(',').map((id: string) => Number(id.trim())).filter(Boolean);
+      } else if (typeof contribution_id === 'number') {
+        contributionIds = [contribution_id];
+      }
+
+      // If contribution_id(s) provided, check if any are already paid
+      if (contributionIds.length > 0) {
+        const paidCount = await MahberContribution.count({
+          where: {
+            id: { [Op.in]: contributionIds },
+            status: 'paid'
+          }
         });
-        if (contribution && contribution.status === 'paid') {
-          return res.status(400).json({ message: 'This contribution is already paid.' });
+        if (paidCount > 0) {
+          return res.status(400).json({ message: 'One or more contributions are already paid.' });
         }
       }
 
@@ -86,29 +98,24 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       // Save session ID to member row
       await saveStripeSessionId(String(mahberId), String(req.user.id), session.id);
 
-      // Record payment for subscription (after Stripe webhook or after subscription is confirmed)
-      // You may need to handle this in a webhook for full reliability
-      // Optionally, update contribution status to pending if contribution_id is provided
-      if (contribution_id) {
-        const contribution = await MahberContribution.findOne({
-          where: {
-            id: contribution_id
-          }
-        });
-        if (contribution) {
-          contribution.status = 'pending';
-          await contribution.save();
-        }
+      // Optionally, update contribution status to pending if contribution_id(s) provided
+      if (contributionIds.length > 0) {
+        await MahberContribution.update(
+          { status: 'pending' },
+          { where: { id: { [Op.in]: contributionIds } } }
+        );
         let receipt_url = session.url ?? null;
-        await Payment.create({
-          stripe_payment_id: String(session.payment_intent || session.id),
-          receipt_url: String(receipt_url),
-          method: 'one-time',
-          contribution_id: contribution_id,
-          member_id: req.user.id,
-          amount: req.body.amount,
-          status: 'pending'
-        });
+        for (const cid of contributionIds) {
+          await Payment.create({
+            stripe_payment_id: String(session.payment_intent || session.id),
+            receipt_url: String(receipt_url),
+            method: paymentType === 'subscription' ? 'subscription' : 'one-time',
+            contribution_id: String(cid),
+            member_id: req.user.id,
+            amount: req.body.amount,
+            status: 'pending'
+          });
+        }
       }
 
       return res.json({ url: session.url });
@@ -119,13 +126,24 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         return res.status(400).json({ message: 'Invalid amount' });
       }
 
-      // If contribution_id is provided, check if already paid
-      if (contribution_id) {
-        const contribution = await MahberContribution.findOne({
-          where: { id: contribution_id }
+      // Parse contribution_id(s)
+      let contributionIds: number[] = [];
+      if (typeof contribution_id === 'string' && contribution_id.trim() !== '') {
+        contributionIds = contribution_id.split(',').map((id: string) => Number(id.trim())).filter(Boolean);
+      } else if (typeof contribution_id === 'number') {
+        contributionIds = [contribution_id];
+      }
+
+      // If contribution_id(s) provided, check if any are already paid
+      if (contributionIds.length > 0) {
+        const paidCount = await MahberContribution.count({
+          where: {
+            id: { [Op.in]: contributionIds },
+            status: 'paid'
+          }
         });
-        if (contribution && contribution.status === 'paid') {
-          return res.status(400).json({ message: 'This contribution is already paid.' });
+        if (paidCount > 0) {
+          return res.status(400).json({ message: 'One or more contributions are already paid.' });
         }
       }
 
@@ -159,32 +177,35 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       // Save session ID to member row
       await saveStripeSessionId(String(mahberId), String(req.user.id), session.id);
 
-      // Find the latest unpaid contribution for this user and Mahber
-      const contribution = await MahberContribution.findOne({
-        where: {
-          id: contribution_id
-        },
-        order: [['period_number', 'DESC']]
-      });
-      // Optionally, update contribution status to pending if contribution_id is provided
-      if (contribution) {
-        contribution.status = 'pending';
-        await contribution.save();
-      }
-
-      // Record payment in payments table (mahber_payments)
-      if (contribution) {
-        let receipt_url = session.url ?? null;
-        await Payment.create({
-          stripe_payment_id: String(session.payment_intent || session.id),
-          receipt_url: String(receipt_url),
-          method: 'one-time',
-          contribution_id: contribution.id,
-          member_id: req.user.id,
-          amount: req.body.amount,
-          status: 'pending'
+      // Find the latest unpaid contribution for this user and Mahber if no contribution_id(s) provided
+      let contribution = null;
+      if (contributionIds.length === 0) {
+        contribution = await MahberContribution.findOne({
+          where: {
+            mahber_id: mahberId,
+            member_id: req.user.id,
+            status: 'unpaid'
+          },
+          order: [['period_number', 'DESC']]
         });
       }
+
+      // Optionally, update contribution status to pending if contribution_id(s) provided
+      await MahberContribution.update(
+        { status: 'pending' },
+        { where: { id: { [Op.in]: contributionIds } } }
+      );
+      let receipt_url = session.url ?? null;
+      await Payment.create({
+        stripe_payment_id: String(session.payment_intent || session.id),
+        receipt_url: String(receipt_url),
+        method: 'one-time',
+        contribution_id: contribution_id,
+        member_id: req.user.id,
+        amount: req.body.amount,
+        status: 'pending'
+      });
+      
 
       return res.json({ url: session.url });
     }

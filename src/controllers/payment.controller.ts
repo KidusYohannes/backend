@@ -168,7 +168,7 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
         stripe_payment_id: paymentIntent.id,
         receipt_url: '', // You can update this after payment confirmation
         method: 'one-time',
-        contribution_id: contribution.id,
+        contribution_id: String(contribution.id),
         member_id: req.user.id,
         amount: req.body.amount,
         status: 'pending'
@@ -263,7 +263,7 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
         stripe_payment_id: subscription.id,
         receipt_url: '', // You can update this after payment confirmation
         method: 'subscription',
-        contribution_id: contribution.id,
+        contribution_id: String(contribution.id),
         member_id: req.user.id,
         amount: 0, // You can update this after payment confirmation
         status: 'pending'
