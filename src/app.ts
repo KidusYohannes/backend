@@ -5,6 +5,7 @@ import memberRoutes from './routes/member.routes';
 import authRoutes from './routes/auth.routes';
 import paymentRoutes from './routes/payment.routes';
 import contributionRoute from './routes/contribution.route';
+import stripeWebhookRoutes from './webhooks/stripe.webhook.routes';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -36,6 +37,7 @@ app.use('/users', userRoutes);
 app.use('/mahber', mahiberRoutes);
 app.use('/members', memberRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/stripe', stripeWebhookRoutes)
 app.use('/', authRoutes);
 app.use('/contributions', contributionRoute);
 
