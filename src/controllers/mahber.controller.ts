@@ -223,6 +223,16 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
 }
 
 /**
+ * Possible values for memberStatus:
+ * - 'accepted'   (joined, can also have memberRole: 'admin', 'member', etc. if accepted)
+ * - 'invited'    (invited)
+ * - 'requested'  (requested)
+ * - 'rejected'   (rejected)
+ * - 'left'       (left)
+ * - 'none'       (not a member)
+ */
+
+/**
  * Get all mahbers with the authenticated user's standing (invited, accepted, rejected, left, or none).
  * Supports search, pagination.
  */
@@ -248,19 +258,20 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
       edir_id: { [Op.in]: mahberIds }
     }
   });
-  const memberMap: Record<string, string> = {};
+  const memberMap: Record<string, { status: string, role?: string }> = {};
   memberRecords.forEach(m => {
-    memberMap[String(m.edir_id)] = m.status;
+    memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
   });
 
-  // Attach user standing to each mahber
-  const dataWithStanding = result.data.map((m: any) => ({
+  // Attach memberStatus and memberRole to each mahber
+  const dataWithStatus = result.data.map((m: any) => ({
     ...m,
-    userStanding: memberMap[String(m.id)] || 'none'
+    memberStatus: memberMap[String(m.id)]?.status || 'none', // accepted, invited, requested, rejected, left, none
+    memberRole: memberMap[String(m.id)]?.role || null        // admin, member, etc. (only if accepted)
   }));
 
   res.json({
     ...result,
-    data: dataWithStanding
+    data: dataWithStatus
   });
 };

@@ -294,6 +294,7 @@ cron.schedule('* * * * *', async () => {
         expand: ['payment_intent', 'subscription'],
       }
     );
+    console.log(`Processing session ${session}`);
     if (session.payment_intent) {
       const paymentIntent = session.payment_intent as Stripe.PaymentIntent;
       console.log(`Processing payment intent ${paymentIntent.id} for session ${session.id}`);
