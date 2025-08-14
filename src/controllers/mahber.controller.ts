@@ -1,5 +1,5 @@
 import { Response, Request } from 'express';
-import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount } from '../services/mahber.service';
+import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers } from '../services/mahber.service';
 import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
@@ -274,4 +274,16 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
     ...result,
     data: dataWithStatus
   });
+};
+
+export const getFeaturedMahbersController = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+  const featuredMahbers = await getFeaturedMahbers(search, page, perPage);
+  res.json(featuredMahbers);
 };

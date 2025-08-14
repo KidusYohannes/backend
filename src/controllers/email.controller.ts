@@ -83,8 +83,11 @@ export function generateForgotPasswordEmail(user: User, linkToken: string) {
       <h2>Password Reset Request</h2>
       <p>Dear ${user.full_name},</p>
       <p>We received a request to reset your Mahber account password.</p>
-      <p>Please click the link below to reset your password:</p>
-      <p><a href="${process.env.FRONTEND_URL}/reset-password?token=${linkToken}&email=${encodeURIComponent(user.email)}">Reset Password</a></p>
+      <p>Please use the verification code below:</p>
+      <p style="color: #888;">This code will expire in 30 minutes.</p>
+      <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 16px;">
+        ${linkToken}
+      </div>
       <p>If you did not request this, please ignore this email.</p>
       <p>Thank you,<br/>Mahber Team</p>
     `

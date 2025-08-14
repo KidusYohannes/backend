@@ -76,6 +76,9 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       address: payload.address,
       zip_code: payload.zip_code,
       created_at: now,
+      featured: payload.is_featured || "false",
+      promoted: payload.is_promoted || "false",
+      visibility: payload.visibility || 'public', // default to public if not provided
       updated_at: now
     };
 
@@ -408,4 +411,54 @@ export const checkMahberStripeAccount = async (mahberId: number) => {
     await mahber.update({ stripe_status: 'pending' });
     return false;
   }
+}
+
+
+export const getFeaturedMahbers = async (
+  search: string = '',
+  page: number = 1,
+  perPage: number = 10
+): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
+  
+  const where: any = {
+    visibility: { [Op.ne]: 'private' },
+    featured: "true"
+  };
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
+  const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
+  const data = mahberList.map(m => ({
+    ...m,
+    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 }
+  }));
+
+  return {
+    data,
+    total: count,
+    page,
+    perPage
+  };
 }
