@@ -276,14 +276,54 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
   });
 };
 
-export const getFeaturedMahbersController = async (req: AuthenticatedRequest, res: Response) => {
+
+export const getFeaturedPromotedMahbersController = async (req: Request, res: Response) => {
+  
+  const featuredPromoted = req.params.featuredPromoted;
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+  const featuredMahbers = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
+  res.json(featuredMahbers);
+};
+
+
+export const getFeaturedPromotedMahbersControllerAuthenticated = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
+  
+  const featuredPromoted = req.params.featuredPromoted;
   const search = typeof req.query.search === 'string' ? req.query.search : '';
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
-  const featuredMahbers = await getFeaturedMahbers(search, page, perPage);
-  res.json(featuredMahbers);
+  const result = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
+
+  // Get member records for this user
+  const userId = String(req.user.id);
+  // Ensure edir_id is string for comparison
+  const mahberIds = result.data.map((m: any) => String(m.id));
+  const memberRecords = await Member.findAll({
+    where: {
+      member_id: userId,
+      edir_id: { [Op.in]: mahberIds }
+    }
+  });
+  const memberMap: Record<string, { status: string, role?: string }> = {};
+  memberRecords.forEach(m => {
+    memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
+  });
+
+  // Attach memberStatus and memberRole to each mahber
+  const dataWithStatus = result.data.map((m: any) => ({
+    ...m,
+    memberStatus: memberMap[String(m.id)]?.status || 'none', // accepted, invited, requested, rejected, left, none
+    memberRole: memberMap[String(m.id)]?.role || null        // admin, member, etc. (only if accepted)
+  }));
+
+  res.json({
+    ...result,
+    data: dataWithStatus
+  });
 };

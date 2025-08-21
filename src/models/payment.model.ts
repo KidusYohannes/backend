@@ -11,6 +11,7 @@ interface PaymentAttributes {
   amount: number;
   status: string;
   created_at?: string;
+  session_id?: string;
 }
 
 interface PaymentCreationAttributes extends Optional<PaymentAttributes, 'id' | 'receipt_url' | 'created_at'> {}
@@ -25,6 +26,7 @@ export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes>
   public amount!: number;
   public status!: string;
   public created_at?: string;
+  public session_id?: string;
 }
 
 Payment.init(
@@ -37,7 +39,8 @@ Payment.init(
     member_id: { type: DataTypes.INTEGER, allowNull: false },
     amount: { type: DataTypes.DECIMAL, allowNull: false },
     status: { type: DataTypes.STRING, allowNull: false },
-    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    session_id: { type: DataTypes.STRING } // Optional field for storing session ID
   },
   { sequelize, tableName: 'mahber_payments', timestamps: false }
 );

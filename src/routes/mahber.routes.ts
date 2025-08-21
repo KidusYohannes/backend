@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { addMahiber, getMyMahibers, getMahiber, editMahiber, removeMahiber, getMahbers, getJoinedMahibers, getOnboardingLink, getMahbersWithUserStanding } from '../controllers/mahber.controller';
+import { addMahiber, getMyMahibers, getMahiber, editMahiber, removeMahiber, getMahbers, getJoinedMahibers, getOnboardingLink, getMahbersWithUserStanding,
+    getFeaturedPromotedMahbersController, getFeaturedPromotedMahbersControllerAuthenticated
+ } from '../controllers/mahber.controller';
 import { getMahberMembers } from '../controllers/member.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 
@@ -16,5 +18,8 @@ router.delete('/:id', authenticateToken, removeMahiber);
 router.get('/:id/members', authenticateToken, getMahberMembers);
 // Add onboarding link route (should be before /:id to avoid conflict)
 router.get('/:id/onboarding-link', authenticateToken, getOnboardingLink);
+router.get('/all/:featuredPromoted', getFeaturedPromotedMahbersController);
+router.get('/all-authenticated/:featuredPromoted', authenticateToken, getFeaturedPromotedMahbersControllerAuthenticated);
+
 
 export default router;
