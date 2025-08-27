@@ -11,6 +11,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import "./services/schdule.service"; // Import the schedule service to start the cron job
+import logger from './utils/logger';
 
 dotenv.config();
 
@@ -32,6 +33,12 @@ app.use(rateLimit({
 }));
 app.use(express.json());
 
+// Log all requests
+app.use((req, _res, next) => {
+  logger.info(`${req.method} ${req.url}`);
+  next();
+});
+
 // Routes
 app.use('/users', userRoutes);
 app.use('/mahber', mahiberRoutes);
@@ -41,8 +48,9 @@ app.use('/stripe', stripeWebhookRoutes)
 app.use('/', authRoutes);
 app.use('/contributions', contributionRoute);
 
-// Error handler to avoid leaking stack traces
+// Error handler to log errors and avoid leaking stack traces
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error(err.message);
   res.status(err.status || 500).json({
     message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
   });
