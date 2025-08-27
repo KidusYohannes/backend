@@ -9,7 +9,8 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { saveStripeSessionId } from '../models/member.model';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
-import { Op } from 'sequelize';
+import { Op, WhereOptions, QueryTypes } from 'sequelize';
+import sequelize from '../config/db'; // Adjust the path to your actual Sequelize instance
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -63,9 +64,13 @@ async function validateContributionIds(contributionIds: number[]) {
 }
 
 // Helper to create Stripe Checkout session
-async function createStripeSession(paymentType: string, stripeCustomerId: string, mahber: any, req: AuthenticatedRequest, sessionData: any, contributionIds: any) {
-  const { success_url, cancel_url, expires_at, line_items, subscription_data, payment_intent_data } = sessionData;
+async function createStripeSession(paymentType: string, stripeCustomerId: string, mahber: any, req: AuthenticatedRequest, contributionIds: any, sessionData: any) {
+  const { expires_at, line_items, subscription_data, payment_intent_data } = sessionData;
 
+  const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
+  const success_url = `${baseFrontendUrl}/stripe/success`;
+  const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
+    
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card', 'us_bank_account'],
     mode: paymentType === 'subscription' ? 'subscription' : 'payment',
@@ -78,7 +83,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
     metadata: {
       mahber_id: mahber.id.toString(),
       member_id: req.user?.id?.toString() ?? '',
-      contribution_ids: contributionIds.join(','),
+      // contribution_ids: contributionIds.map(String), // Ensure IDs are strings
       paymentType
     },
     expires_at
@@ -91,22 +96,21 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
 async function handlePendingPaymentsAndContributions(contributionIds: number[], session: any, req: AuthenticatedRequest, paymentType: string, amount: number) {
   if (contributionIds.length > 0) {
     await MahberContribution.update(
-      { status: 'unpaid' },
+      { status: 'processing' },
       { where: { id: { [Op.in]: contributionIds } } }
     );
-    let receipt_url = session.url ?? null;
-    for (const cid of contributionIds) {
-      await Payment.create({
-        stripe_payment_id: String(session.payment_intent),
-        receipt_url: String(receipt_url),
-        method: paymentType === 'subscription' ? 'subscription' : 'one-time',
-        contribution_id: String(cid),
-        member_id: Number(req.user?.id) ?? '',
-        amount,
-        session_id: String(session.id),
-        status: 'unpaid'
-      });
-    }
+    const receipt_url = session.url ?? null;
+    const contributionIdString = contributionIds.join(','); // Combine contribution IDs into a comma-separated string
+    await Payment.create({
+      stripe_payment_id: String(session.payment_intent),
+      receipt_url: String(receipt_url),
+      method: paymentType === 'subscription' ? 'subscription' : 'one-time',
+      contribution_id: contributionIdString,
+      member_id: Number(req.user?.id) ?? '',
+      amount,
+      session_id: String(session.id),
+      status: 'processing'
+    });
   }
 }
 
@@ -115,20 +119,31 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
   const now = Math.floor(Date.now() / 1000);
   const tenMinutesFromNow = now + 10 * 60; // 10 minutes
 
+  const contributionIdString = contributionIds.join(','); // Combine contribution IDs into a comma-separated string
+
+  const whereOptions: WhereOptions<Payment> = {
+    member_id: userId,
+    contribution_id: contributionIdString,
+    method: paymentType === 'subscription' ? 'subscription' : 'one-time',
+  };
+
+  // Enable Sequelize logging to capture the actual query
   const activeSession = await Payment.findOne({
-    where: {
-      member_id: userId,
-      contribution_id: { [Op.in]: contributionIds },
-      method: paymentType,
-      status: 'pending'
-    },
-    order: [['createdAt', 'DESC']]
+    where: whereOptions,
+    order: [['id', 'DESC']],
+    logging: console.log // Logs the actual query executed by Sequelize
   });
 
+  console.log('Where condition:', whereOptions);
+
+  console.log('Active session found:', activeSession);
+
   if (activeSession) {
-    const session = await stripe.checkout.sessions.retrieve(activeSession.stripe_payment_id);
-    if (session && session.status === 'open' && session.expires_at > tenMinutesFromNow) {
-      return session;
+    if (typeof activeSession.session_id === 'string') {
+      const session = await stripe.checkout.sessions.retrieve(activeSession.session_id);
+      if (session && session.status === 'open' && session.expires_at > tenMinutesFromNow) {
+        return session;
+      }
     }
   }
 
@@ -163,10 +178,15 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       return res.json({ url: activeSession.url });
     }
 
+    const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
+    const success_url = `${baseFrontendUrl}/stripe/success`;
+    const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
+    console.log('Stripe Checkout URLs:', { success_url, cancel_url });
+
     // Common session data
     const sessionData = {
-      success_url: process.env.SUCCESS_URL || 'https://yenetech.com/stripe/success',
-      cancel_url: process.env.CANCEL_URL || 'https://yenetech.com/stripe/cancel',
+      success_url,
+      cancel_url,
       expires_at: Math.floor(Date.now() / 1000) + 60 * 30
     };
 
@@ -184,6 +204,13 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           }
         }
       });
+
+      // Save subscription ID in the Member table
+      const subscriptionId = session.subscription;
+      if (subscriptionId) {
+        const member = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(subscriptionId));
+        console.log(`Updated member ${member ? req.user.id : 'unknown'} with subscription ID ${String(subscriptionId)}`);
+      }
     } else {
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return res.status(400).json({ message: 'Invalid amount' });

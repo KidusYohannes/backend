@@ -76,6 +76,10 @@ cron.schedule('* * * * *', async () => {
  * | `0 0 * * 6,0` | Every weekend at midnight |
  * | `0 0 1-7 * *` | First 7 days of every month |
  * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
+ * | `0 0 * * 1-5` | Every weekday at midnight |
+ * | `0 0 * * 6,0` | Every weekend at midnight |
+ * | `0 0 1-7 * *` | First 7 days of every month |
+ * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
  * | `0 0 * * * 1-5` | Every weekday at midnight |
  * | `0 0 * * * 6,0` | Every weekend at midnight |
  * | `0 0 1-7 * *` | First 7 days of every month |
@@ -163,7 +167,7 @@ cron.schedule('0 */2 * * *', async () => {
  * This is useful for cases where members subscribe to a plan that requires recurring payments.
  * It runs every 2 hours at minute 0.
  */
-cron.schedule('0 */2 * * *', async () => {
+cron.schedule('* * * * *', async () => {
   console.log('Running scheduled Stripe subscription sync for members...');
   const WhereOptions: WhereOptions = {
     stripe_session_id: { [Op.not]: null },
@@ -198,7 +202,7 @@ cron.schedule('0 */2 * * *', async () => {
  * It checks for members with active subscriptions and retrieves their latest paid invoice and charge
  * to ensure that their subscription status and payment info are up-to-date.
  */
-cron.schedule('0 * * * *', async () => {
+cron.schedule('* * * * *', async () => {
   console.log('Running scheduled Stripe subscription payment sync...');
   const whereClause: WhereOptions = {
     stripe_subscription_id: { [Op.not]: null },
@@ -272,10 +276,9 @@ cron.schedule('0 * * * *', async () => {
 });
 
 /**
- * Scheduler to sync Stripe one time payments
+ * Scheduler to sync Stripe one-time payments
  * This runs every 5 minutes.
- * It checks for members with one-time payments and retrieves their latest paid invoice and charge
- * to ensure that their payment info is up-to-date.
+ * It checks for payments with one-time method and retrieves their latest status using the session ID.
  */
 cron.schedule('* * * * *', async () => {
   console.log('Running scheduled Stripe one-time payment sync...');
@@ -283,79 +286,83 @@ cron.schedule('* * * * *', async () => {
   const payments = await Payment.findAll({
     where: {
       method: 'one-time',
-      status: 'pending'
+      status: 'unpaid'
     }
   });
 
   for (const payment of payments) {
-    const session = await stripe.checkout.sessions.retrieve(
-      payment.stripe_payment_id,
-      {
-        expand: ['payment_intent', 'subscription'],
-      }
-    );
-    console.log(`Processing session ${session}`);
-    if (session.payment_intent) {
-      const paymentIntent = session.payment_intent as Stripe.PaymentIntent;
-      console.log(`Processing payment intent ${paymentIntent.id} for session ${session.id}`);
-      console.log(`Payment intent status: ${paymentIntent.status}`);
+    try {
+      const session = await stripe.checkout.sessions.retrieve(payment.session_id as string, {
+        expand: ['payment_intent', 'subscription']
+      });
+      console.log(`Processing session ${session.id}`);
+      if (session.payment_intent) {
+        const paymentIntent = session.payment_intent as Stripe.PaymentIntent;
+        console.log(`Processing payment intent ${paymentIntent.id} for session ${session.id}`);
+        console.log(`Payment intent status: ${paymentIntent.status}`);
 
-      let receiptUrl = session.url || null;
-      if (paymentIntent.id) {
-        const chargesList = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
-        if (chargesList.data.length > 0) {
-          receiptUrl = chargesList.data[0].receipt_url || receiptUrl;
+        let receiptUrl: string = session.url || '';
+        if (paymentIntent.id) {
+          const chargesList = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
+          if (chargesList.data.length > 0) {
+            receiptUrl = chargesList.data[0].receipt_url || receiptUrl;
+          }
         }
-      }
-      console.log(`Receipt URL: ${receiptUrl}`);
+        console.log(`Receipt URL: ${receiptUrl}`);
 
-      // Parse contribution_id(s) from payment
-      let contributionIds: number[] = [];
-      if (payment.contribution_id) {
-        if (typeof payment.contribution_id === 'string') {
-          contributionIds = payment.contribution_id
-            .split(',')
-            .map((id: string) => Number(id.trim()))
-            .filter(Boolean);
-        } else if (typeof payment.contribution_id === 'number') {
-          contributionIds = [payment.contribution_id];
+        // Parse contribution_id(s) from payment
+        let contributionIds: number[] = [];
+        if (payment.contribution_id) {
+          if (typeof payment.contribution_id === 'string') {
+            contributionIds = payment.contribution_id
+              .split(',')
+              .map((id: string) => Number(id.trim()))
+              .filter(Boolean);
+          } else if (typeof payment.contribution_id === 'number') {
+            contributionIds = [payment.contribution_id];
+          }
         }
-      }
 
-      // If payment succeeded, update payment and contributions as paid
-      if (paymentIntent.status === 'succeeded' && (receiptUrl || '').trim() !== '' && receiptUrl) {
-        await Payment.update(
-          { status: 'paid', receipt_url: receiptUrl || '', stripe_payment_id: paymentIntent.id },
-          { where: { id: payment.id } }
-        );
-        if (contributionIds.length > 0) {
-          await MahberContribution.update(
-            { status: 'paid', amount_paid: payment.amount },
-            { where: { id: { [Op.in]: contributionIds } } }
+        // If payment succeeded, update payment and contributions as paid
+        if (paymentIntent.status === 'succeeded' && receiptUrl) {
+          await Payment.update(
+            { status: 'paid', receipt_url: receiptUrl, stripe_payment_id: paymentIntent.id },
+            { where: { id: payment.id } }
           );
-        }
-        console.log(`Updated payment ${payment.id} and contributions [${contributionIds.join(',')}] to paid.`);
-      } else if (
-        paymentIntent.status === 'canceled' ||
-        paymentIntent.status === 'requires_payment_method' ||
-        paymentIntent.status === 'requires_action' ||
-        paymentIntent.status === 'requires_confirmation'
-      ) {
-        // If payment failed or was canceled, update payment and contributions as failed
-        await Payment.update(
-          { status: 'failed', receipt_url: receiptUrl || '', stripe_payment_id: paymentIntent.id },
-          { where: { id: payment.id } }
-        );
-        if (contributionIds.length > 0) {
-          await MahberContribution.update(
-            { status: 'failed' },
-            { where: { id: { [Op.in]: contributionIds } } }
+          if (contributionIds.length > 0) {
+            await MahberContribution.update(
+              { status: 'paid', amount_paid: payment.amount },
+              { where: { id: { [Op.in]: contributionIds } } }
+            );
+          }
+          console.log(`Updated payment ${payment.id} and contributions [${contributionIds.join(',')}] to paid.`);
+        } else if (
+          paymentIntent.status === 'canceled'
+        ) {
+          /**
+           *  ||
+            paymentIntent.status === 'requires_payment_method' ||
+            paymentIntent.status === 'requires_action' ||
+            paymentIntent.status === 'requires_confirmation'
+           */
+          // If payment failed or was canceled, update payment and contributions as failed
+          await Payment.update(
+            { status: 'failed', receipt_url: receiptUrl || '', stripe_payment_id: paymentIntent.id },
+            { where: { id: payment.id } }
           );
+          if (contributionIds.length > 0) {
+            await MahberContribution.update(
+              { status: 'failed' },
+              { where: { id: { [Op.in]: contributionIds } } }
+            );
+          }
+          console.log(`Updated payment ${payment.id} and contributions [${contributionIds.join(',')}] to failed.`);
+        } else {
+          console.log(`Payment intent ${paymentIntent.id} not succeeded or failed yet.`);
         }
-        console.log(`Updated payment ${payment.id} and contributions [${contributionIds.join(',')}] to failed.`);
-      } else {
-        console.log(`Payment intent ${paymentIntent.id} not succeeded or failed yet.`);
       }
+    } catch (err) {
+      console.error(`Error syncing payment for session ${payment.session_id}:`, err);
     }
   }
 

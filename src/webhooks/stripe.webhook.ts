@@ -4,6 +4,7 @@ import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Mahber } from '../models/mahber.model';
 import { Op } from 'sequelize';
+import { Member } from '../models/member.model';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
@@ -26,8 +27,24 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const payment = await Payment.findOne({ where: { session_id: session.id } });
         if (payment) {
-          await payment.update({ status: 'in_progress' });
+          await payment.update({
+            status: 'in_progress',
+            stripe_payment_id: session.payment_intent as string || payment.stripe_payment_id // Update payment intent ID if available
+          });
         }
+
+        // Save subscription ID in the Member table if it's a subscription session
+        if (session.subscription) {
+          const subscriptionId = session.subscription as string;
+          const member = await Member.findOne({ where: { stripe_session_id: session.id } });
+          if (member) {
+            await member.update({ stripe_subscription_id: subscriptionId });
+            console.log(`Updated member ${member.id} with subscription ID ${subscriptionId}`);
+          } else {
+            console.warn(`No member found for session ID: ${session.id}`);
+          }
+        }
+        
         console.log(`Checkout session completed for session ID: ${session.id}`);
         break;
       }
@@ -36,16 +53,28 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const payment = await Payment.findOne({ where: { session_id: session.id } });
         if (payment) {
-          await payment.update({ status: 'in_progress' });
+          await payment.update({
+            status: 'in_progress',
+            stripe_payment_id: session.payment_intent as string || payment.stripe_payment_id // Update payment intent ID if available
+          });
         }
-        console.log(`Checkout session completed for session ID: ${session.id}`);
+        console.log(`Checkout session async payment succeeded for session ID: ${session.id}`);
         break;
       }
 
       
       case 'payment_intent.processing': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+        let payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+
+        // If payment not found by payment_intent ID, try using metadata.session_id
+        if (!payment && paymentIntent.metadata && paymentIntent.metadata.session_id) {
+          payment = await Payment.findOne({ where: { session_id: paymentIntent.metadata.session_id } });
+          if (payment) {
+            await payment.update({ stripe_payment_id: paymentIntent.id }); // Update payment intent ID
+          }
+        }
+
         if (payment) {
           await payment.update({ status: 'processing' });
           await MahberContribution.update(
@@ -59,7 +88,21 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
 
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+        let payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+
+        /*
+        client_attribution_metadata": {
+          "checkout_config_id": "your_checkout_config_id"
+        }
+        */
+        // If payment not found by payment_intent ID, try using metadata.session_id
+        if (!payment && paymentIntent.metadata && paymentIntent.metadata.session_id) {
+          payment = await Payment.findOne({ where: { session_id: paymentIntent.metadata.session_id } });
+          if (payment) {
+            await payment.update({ stripe_payment_id: paymentIntent.id }); // Update payment intent ID
+          }
+        }
+
         if (payment) {
           await payment.update({ status: 'paid' });
           await MahberContribution.update(
@@ -73,7 +116,16 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+        let payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
+
+        // If payment not found by payment_intent ID, try using metadata.session_id
+        if (!payment && paymentIntent.metadata && paymentIntent.metadata.session_id) {
+          payment = await Payment.findOne({ where: { session_id: paymentIntent.metadata.session_id } });
+          if (payment) {
+            await payment.update({ stripe_payment_id: paymentIntent.id }); // Update payment intent ID
+          }
+        }
+
         if (payment) {
           await payment.update({ status: 'failed' });
           await MahberContribution.update(

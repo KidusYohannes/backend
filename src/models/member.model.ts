@@ -49,3 +49,11 @@ export async function saveStripeSessionId(edirId: string, memberId: string, sess
   await member.update({ stripe_session_id: sessionId });
   return true;
 }
+
+
+export async function saveStripeSubscriptionId(edirId: string, memberId: string, subscriptionId: string): Promise<boolean> {
+  const member = await Member.findOne({ where: { edir_id: edirId, member_id: memberId } });
+  if (!member) return false;
+  await member.update({ stripe_subscription_id: subscriptionId });
+  return true;
+}
