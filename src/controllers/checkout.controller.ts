@@ -11,6 +11,7 @@ import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op, WhereOptions, QueryTypes } from 'sequelize';
 import sequelize from '../config/db'; // Adjust the path to your actual Sequelize instance
+import logger from '../utils/logger';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
@@ -18,19 +19,24 @@ const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make thi
 
 // Helper to validate Mahber and user
 async function validateMahberAndUser(mahberId: number, userId: number) {
+  logger.info(`Validating Mahber ID: ${mahberId}, User ID: ${userId}`);
   const mahber = await getMahberById(mahberId);
   if (!mahber) {
+    logger.error(`Mahber not found for ID: ${mahberId}`);
     throw new Error('Mahber not found');
   }
   if (!mahber.stripe_account_id || mahber.stripe_status !== 'active') {
+    logger.error(`Mahber Stripe account is not active for ID: ${mahberId}`);
     throw new Error('Mahber Stripe account is not active. Please finish onboarding before making payments.');
   }
 
   const user = await getUserById(userId);
   if (!user) {
+    logger.error(`User not found for ID: ${userId}`);
     throw new Error('User not found');
   }
 
+  logger.info(`Mahber and User validated successfully: Mahber ID: ${mahberId}, User ID: ${userId}`);
   return { mahber, user };
 }
 
@@ -50,6 +56,7 @@ async function ensureStripeCustomer(user: any) {
 
 // Helper to validate contribution IDs
 async function validateContributionIds(contributionIds: number[]) {
+  logger.info(`Validating contribution IDs: ${contributionIds}`);
   if (contributionIds.length > 0) {
     const paidCount = await MahberContribution.count({
       where: {
@@ -58,9 +65,11 @@ async function validateContributionIds(contributionIds: number[]) {
       }
     });
     if (paidCount > 0) {
+      logger.error(`One or more contributions are already paid: ${contributionIds}`);
       throw new Error('One or more contributions are already paid.');
     }
   }
+  logger.info(`Contribution IDs validated successfully: ${contributionIds}`);
 }
 
 // Helper to create Stripe Checkout session
@@ -116,6 +125,7 @@ async function handlePendingPaymentsAndContributions(contributionIds: number[], 
 
 // Helper to find an active session
 async function findActiveSession(userId: number, contributionIds: number[], paymentType: string) {
+  logger.info(`Finding active session for User ID: ${userId}, Contribution IDs: ${contributionIds}, Payment Type: ${paymentType}`);
   const now = Math.floor(Date.now() / 1000);
   const tenMinutesFromNow = now + 10 * 60; // 10 minutes
 
@@ -127,32 +137,34 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
     method: paymentType === 'subscription' ? 'subscription' : 'one-time',
   };
 
-  // Enable Sequelize logging to capture the actual query
+  logger.debug(`Sequelize where condition: ${JSON.stringify(whereOptions)}`);
+
   const activeSession = await Payment.findOne({
     where: whereOptions,
     order: [['id', 'DESC']],
-    logging: console.log // Logs the actual query executed by Sequelize
+    logging: (query) => logger.debug(`Sequelize query: ${query}`) // Logs the actual query executed by Sequelize
   });
 
-  console.log('Where condition:', whereOptions);
-
-  console.log('Active session found:', activeSession);
-
   if (activeSession) {
+    logger.info(`Active session found: ${JSON.stringify(activeSession)}`);
     if (typeof activeSession.session_id === 'string') {
       const session = await stripe.checkout.sessions.retrieve(activeSession.session_id);
       if (session && session.status === 'open' && session.expires_at > tenMinutesFromNow) {
+        logger.info(`Returning active session: ${session.id}`);
         return session;
       }
     }
   }
 
+  logger.info('No active session found');
   return null;
 }
 
 export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    logger.info(`Received createCheckoutPayment request: ${JSON.stringify(req.body)}`);
     if (!req.user) {
+      logger.error('Unauthorized request: User not authenticated');
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -170,11 +182,13 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     } else if (typeof contribution_id === 'number') {
       contributionIds = [contribution_id];
     }
+    logger.info(`Parsed contribution IDs: ${contributionIds}`);
     await validateContributionIds(contributionIds);
 
     // Check for an active session
     const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType);
     if (activeSession) {
+      logger.info(`Returning existing active session URL: ${activeSession.url}`);
       return res.json({ url: activeSession.url });
     }
 
@@ -238,9 +252,10 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
     await handlePendingPaymentsAndContributions(contributionIds, session, req, paymentType, amount || 0);
 
+    logger.info('Stripe Checkout session created successfully');
     return res.json({ url: session.url });
   } catch (error: any) {
-    console.error('Stripe Checkout error:', error);
+    logger.error(`Stripe Checkout error: ${error.message}`, { stack: error.stack });
     res.status(500).json({ message: error.message || 'Failed to create checkout session' });
   }
 };
