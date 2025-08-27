@@ -28,7 +28,7 @@ app.use(cors({
 }));
 app.use(rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 1000 // limit each IP to 1000 requests per windowMs
+  max: 100 // limit each IP to 1000 requests per windowMs
 }));
 app.use(express.json());
 
