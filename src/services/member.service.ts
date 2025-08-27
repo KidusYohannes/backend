@@ -76,7 +76,7 @@ export const respondToInvite = async (userId: string, edirId: string, accept: bo
   const member = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'invited' } });
   if (!member) throw new Error('No invite found');
   if (accept) {
-    await Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [Op.ne]: 'invited' } } });
+    // await Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [Op.ne]: 'invited' } } });
     member.status = 'accepted';
     await member.save();
     // Create member contribution for current period with status 'pending'
@@ -108,7 +108,7 @@ export const respondToJoinRequest = async (adminId: string, edirId: string, user
   const member = await Member.findOne({ where: { member_id: userId, edir_id: edirId, status: 'requested' } });
   if (!member) throw new Error('No join request found');
   if (accept) {
-    await Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [Op.ne]: 'requested' } } });
+    // await Member.update({ status: 'rejected' }, { where: { member_id: userId, status: { [Op.ne]: 'requested' } } });
     member.status = 'accepted';
     await member.save();
     // Create member contribution for current period with status 'pending'
