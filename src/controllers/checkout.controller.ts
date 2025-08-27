@@ -185,11 +185,13 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     logger.info(`Parsed contribution IDs: ${contributionIds}`);
     await validateContributionIds(contributionIds);
 
-    // Check for an active session
-    const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType);
-    if (activeSession) {
-      logger.info(`Returning existing active session URL: ${activeSession.url}`);
-      return res.json({ url: activeSession.url });
+    if (paymentType !== 'subscription') {
+      // Check for an active session
+      const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType);
+      if (activeSession) {
+        logger.info(`Returning existing active session URL: ${activeSession.url}`);
+        return res.json({ url: activeSession.url });
+      }
     }
 
     const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
