@@ -283,6 +283,8 @@ export const createDemoContributions = async (req: Request, res: Response) => {
     });
     let startPeriodNumber;
     let periodStartDate;
+
+    let termId = contributionTerm.id;
     if (lastContribution) {
       startPeriodNumber = lastContribution.period_number ? lastContribution.period_number + 1 : 1;
       periodStartDate = lastContribution.period_start_date ? new Date(lastContribution.period_start_date) : new Date(effective_from);
@@ -301,6 +303,7 @@ export const createDemoContributions = async (req: Request, res: Response) => {
         period_number: startPeriodNumber + i,
         period_start_date: String(new Date(periodStartDate)),
         amount_due: amount,
+        contribution_term_id: termId,
         status: 'unpaid'
       });
       logger.info(`Creating demo contribution: ${JSON.stringify(contribution)}`);
