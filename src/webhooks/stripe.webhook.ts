@@ -173,7 +173,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
             { where: { id: payment.contribution_id } }
           );
         }
-        console.log(`Checkout session expired for session ID: ${session.id}`);
+        logger.info(`Checkout session expired for session ID: ${session.id}`);
         break;
       }
 
@@ -181,7 +181,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = (invoice as any).subscription as string | undefined;
         if (!subscriptionId) {
-          console.warn('Invoice does not have a subscription ID.');
+          logger.warn('Invoice does not have a subscription ID.');
           break;
         }
         const payment = await Payment.findOne({ where: { stripe_payment_id: subscriptionId } });
@@ -192,8 +192,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
             { where: { id: payment.contribution_id } }
           );
         }
-        console.log(`Invoice paid for subscription ID: ${subscriptionId}`);
-        // If you want to handle invoice payment failure, use a separate event type like 'invoice.payment_failed'
+        logger.info(`Invoice paid for subscription ID: ${subscriptionId}`);
         break;
       }
 
@@ -203,13 +202,13 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         if (mahber) {
           if (account.charges_enabled && account.payouts_enabled && account.details_submitted) {
             await mahber.update({ stripe_status: 'active' });
-            console.log(`Mahber ${mahber.id} Stripe account marked as active.`);
+            logger.info(`Mahber ${mahber.id} Stripe account marked as active.`);
           } else {
             await mahber.update({ stripe_status: 'pending' });
-            console.log(`Mahber ${mahber.id} Stripe account marked as pending.`);
+            logger.info(`Mahber ${mahber.id} Stripe account marked as pending.`);
           }
         } else {
-          console.warn(`No Mahber found for Stripe account ID: ${account.id}`);
+          logger.warn(`No Mahber found for Stripe account ID: ${account.id}`);
         }
         break;
       }
