@@ -15,7 +15,7 @@ import stripeClient from '../config/stripe.config';
 
 dotenv.config();
 const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make this 30 minutes
-
+const generatedSessionId = uuidv4();
 // Helper to validate Mahber and user
 async function validateMahberAndUser(mahberId: number, userId: number) {
   logger.info(`Validating Mahber ID: ${mahberId}, User ID: ${userId}`);
@@ -283,20 +283,11 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ message: error.message || 'Failed to create checkout session' });
   }
 };
-
-async function uuidv4(): Promise<string> {
-  // Generates a RFC4122 version 4 UUID and ensures it is unique in the Payment model
-  let id: string;
-  let exists: boolean;
-
-  do {
-    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = Math.random() * 16 | 0;
-      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-
-    exists = await Payment.findOne({ where: { stripe_payment_id: id } }) !== null;
-  } while (exists);
-
-  return id;
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
+
