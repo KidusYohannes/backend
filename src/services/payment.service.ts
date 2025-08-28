@@ -26,7 +26,7 @@ export async function recordPayment({
     stripe_payment_id: paymentId,
     receipt_url: receiptUrl,
     method,
-    contribution_id: contributionId,
+    contribution_id: contributionId.toString(),
     member_id: memberId,
     amount,
     status
@@ -57,7 +57,7 @@ export async function recordOneTimePayment({
     stripe_payment_id: paymentId,
     receipt_url: receiptUrl,
     method: 'one-time',
-    contribution_id: contributionId,
+    contribution_id: contributionId.toString(),
     member_id: memberId,
     amount,
     status
