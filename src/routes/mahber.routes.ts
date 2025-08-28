@@ -12,7 +12,7 @@ router.get('/', authenticateToken, getMyMahibers);
 router.get('/joined', authenticateToken, getJoinedMahibers);
 router.get('/all', getMahbers);
 router.get('/all-authenticated', authenticateToken, getMahbersWithUserStanding); // For authenticated users only
-router.get('/:id', authenticateToken, getMahiber);
+router.get('/:id', getMahiber);
 router.put('/:id', authenticateToken, editMahiber);
 router.delete('/:id', authenticateToken, removeMahiber);
 router.get('/:id/members', authenticateToken, getMahberMembers);

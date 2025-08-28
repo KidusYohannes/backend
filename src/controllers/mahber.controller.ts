@@ -103,20 +103,20 @@ export const getMahbers = async (req: Request, res: Response) => {
   res.json(result);
 };
 
-export const getMahiber = async (req: AuthenticatedRequest, res: Response) => {
-  if (!req.user) {
-    res.status(401).json({ message: 'Unauthorized' });
-    return;
-  }
+export const getMahiber = async (req: Request, res: Response) => {
+  // if (!req.user) {
+  //   res.status(401).json({ message: 'Unauthorized' });
+  //   return;
+  // }
   const mahiber = await getMahberById(Number(req.params.id));
   if( !mahiber ) {
     res.status(404).json({ message: 'Mahiber not found' });
     return;
   }
-  if (mahiber.created_by !== req.user.id) {
-    res.status(404).json({ message: 'Unauthorized access: created_by'});
-    return;
-  }
+  // if (mahiber.created_by !== req.user.id) {
+  //   res.status(404).json({ message: 'Unauthorized access: created_by'});
+  //   return;
+  // }
 
   // Get member counts by status
   const [joined, invited, requested, rejected] = await Promise.all([

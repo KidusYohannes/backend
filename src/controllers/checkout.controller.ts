@@ -182,9 +182,12 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       contributionIds = [contribution_id];
     }
     logger.info(`Parsed contribution IDs: ${contributionIds}`);
-    await validateContributionIds(contributionIds);
 
-    if (paymentType !== 'subscription') {
+    if (contributionIds.length > 0) {
+      await validateContributionIds(contributionIds);
+    }
+
+    if (paymentType !== 'subscription' && contributionIds.length > 0) {
       // Check for an active session
       const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType);
       if (activeSession) {
@@ -249,9 +252,25 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           }
         }
       });
+
+      // If no contribution IDs are provided, create a payment record without linking to contributions
+      if (contributionIds.length === 0) {
+        await Payment.create({
+          stripe_payment_id: String(session.payment_intent),
+          receipt_url: String(session.url) ?? '',
+          method: 'one-time',
+          contribution_id: '', // No contribution ID
+          member_id: Number(req.user?.id) ?? '',
+          amount,
+          session_id: String(session.id),
+          status: 'processing'
+        });
+      }
     }
 
-    await handlePendingPaymentsAndContributions(contributionIds, session, req, paymentType, amount || 0);
+    if (contributionIds.length > 0) {
+      await handlePendingPaymentsAndContributions(contributionIds, session, req, paymentType, amount || 0);
+    }
 
     logger.info('Stripe Checkout session created successfully');
     return res.json({ url: session.url });
