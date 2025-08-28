@@ -12,6 +12,8 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import "./services/schdule.service"; // Import the schedule service to start the cron job
 import logger from './utils/logger';
+import { stripeWebhookHandler } from './webhooks/stripe.webhook';
+import bodyParser from 'body-parser';
 
 dotenv.config();
 
@@ -31,6 +33,11 @@ app.use(rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 100 // limit each IP to 1000 requests per windowMs
 }));
+app.use(
+  '/stripe/webhook',
+  bodyParser.raw({ type: 'application/json' }),
+  stripeWebhookHandler
+);
 app.use(express.json());
 
 // Log all requests
@@ -44,7 +51,6 @@ app.use('/users', userRoutes);
 app.use('/mahber', mahiberRoutes);
 app.use('/members', memberRoutes);
 app.use('/payments', paymentRoutes);
-app.use('/stripe', stripeWebhookRoutes)
 app.use('/', authRoutes);
 app.use('/contributions', contributionRoute);
 
