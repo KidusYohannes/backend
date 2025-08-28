@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { saveStripeSessionId, saveStripeSubscriptionId } from '../models/member.model';
+import { Member, saveStripeSessionId, saveStripeSubscriptionId } from '../models/member.model';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op, WhereOptions, QueryTypes } from 'sequelize';
@@ -232,18 +232,18 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       logger.info(`Stripe Checkout session created updating member: ${JSON.stringify(session.id)}`);
 
       try {
-        const memeber = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
-        logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
+        const member = await Member.findOne({ where: { edir_id: String(mahber.id), member_id: String(req.user.id) } });
+        if(member){
+          const updatedMember = await member.update({ stripe_session_id: session.id });
+          logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
+        }else{
+          logger.warn(`Member not found for edir_id: ${String(mahber.id)} and member_id: ${String(req.user.id)}`);
+        }
       } catch (error) {
         logger.info(`Failed Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
         logger.error(`Failed to save Stripe session ID: ${error}`);
       }
-      // Save subscription ID in the Member table
-      const subscriptionId = session.subscription;
-      if (subscriptionId) {
-        const updatedMember = await saveStripeSubscriptionId(String(req.user.id), String(mahber.id), String(subscriptionId));
-        console.log(`Updated member ${updatedMember ? req.user.id : 'unknown'} with subscription ID ${String(subscriptionId)}`);
-      }
+      
     } else {
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return res.status(400).json({ message: 'Invalid amount' });
