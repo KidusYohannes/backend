@@ -12,6 +12,7 @@ import { Op, WhereOptions, QueryTypes } from 'sequelize';
 import sequelize from '../config/db'; // Adjust the path to your actual Sequelize instance
 import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
+import { MahberContributionTerm } from '../models/mahber_contribution_term.model'
 
 dotenv.config();
 const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make this 30 minutes
@@ -271,6 +272,11 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       });
     }
 
+    let contribution_amount = amount;
+      const contributionTerm = await MahberContributionTerm.findOne({ where: { mahber_id: mahber.id } });
+      if(contributionTerm && (amount === null || amount === undefined)){
+        contribution_amount = contributionTerm.amount;
+      }
       // If no contribution IDs are provided, create a payment record without linking to contributions
       if (contributionIds.length === 0) {
         await Payment.create({
@@ -279,7 +285,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           method: paymentType === 'subscription' ? 'subscription' : 'one-time',
           contribution_id: '', // No contribution ID
           member_id: Number(req.user?.id) ?? '',
-          amount: amount,
+          amount: contribution_amount,
           session_id: String(session.id),
           status: 'processing'
         });
