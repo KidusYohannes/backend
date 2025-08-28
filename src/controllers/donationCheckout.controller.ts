@@ -104,7 +104,7 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       method: 'one-time',
       contribution_id: '', // No contribution ID for donations
       member_id: req.user.id,
-      amount,
+      amount: amount,
       session_id: String(session.id),
       status: 'processing'
     });
