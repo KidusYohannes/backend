@@ -16,6 +16,9 @@ router.get('/my', authenticateToken, contributionController.getContributionsForU
 // Get all unpaid contributions for the authenticated user (legacy, use /my?status=unpaid)
 router.get('/my/unpaid', authenticateToken, contributionController.getUnpaidContributionsForUser);
 
+// Get all unpaid contributions for the authenticated user (legacy, use /my?status=unpaid)
+router.post('/create-contributions', contributionController.createDemoContributions);
+
 // Get all contributions for a Mahber (paginated, descending order)
 router.get(
   '/:mahber_id/history',

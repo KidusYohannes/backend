@@ -6,6 +6,7 @@ import { WhereOptions, Op } from 'sequelize';
 import { Mahber } from '../models/mahber.model';
 import { User } from '../models/user.model';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
+import logger from '../utils/logger';
 
 function getPeriodName(startDate: Date, unit: string): string {
   const options: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
@@ -246,5 +247,94 @@ export const getMahberCurrentMonthContributions = async (req: AuthenticatedReque
     });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Create demo contributions for a Mahber.
+ * Expects: { mahber_id, user_id, count }
+ */
+export const createDemoContributions = async (req: Request, res: Response) => {
+  const { mahber_id, user_id, count } = req.body;
+
+  if (!mahber_id || !user_id || !count || count <= 0) {
+    res.status(400).json({ message: 'mahber_id, user_id, and count are required, and count must be greater than 0.' });
+    return;
+  }
+
+  try {
+    // Fetch the active contribution term for the Mahber
+    const contributionTerm = await MahberContributionTerm.findOne({
+      where: { mahber_id, status: 'active' },
+      order: [['effective_from', 'DESC']]
+    });
+
+    if (!contributionTerm) {
+      res.status(404).json({ message: 'No active contribution term found for the specified Mahber.' });
+      return;
+    }
+
+    const { amount, unit, frequency, effective_from } = contributionTerm;
+
+    // Get the last contribution for the user and Mahber
+    const lastContribution = await MahberContribution.findOne({
+      where: { mahber_id, member_id: user_id },
+      order: [['period_number', 'DESC']]
+    });
+    let startPeriodNumber;
+    let periodStartDate;
+    if (lastContribution) {
+      startPeriodNumber = lastContribution.period_number ? lastContribution.period_number + 1 : 1;
+      periodStartDate = lastContribution.period_start_date ? new Date(lastContribution.period_start_date) : new Date(effective_from);
+    }else{
+      startPeriodNumber = 1;
+      periodStartDate = new Date(effective_from);
+    }
+
+    const contributions = [];
+
+    // Create the specified number of contributions
+    for (let i = 0; i < count; i++) {
+      const contribution = MahberContribution.build({
+        mahber_id,
+        member_id: user_id,
+        period_number: startPeriodNumber + i,
+        period_start_date: String(new Date(periodStartDate)),
+        amount_due: amount,
+        status: 'unpaid'
+      });
+      logger.info(`Creating demo contribution: ${JSON.stringify(contribution)}`);
+      contributions.push(contribution);
+
+      const createdContribution = await contribution.save();
+      logger.info(`Created demo contribution: ${JSON.stringify(createdContribution)}`);
+
+      // Calculate the next period start date based on the unit and frequency
+      switch (unit) {
+        case 'month':
+          periodStartDate.setMonth(periodStartDate.getMonth() + frequency);
+          break;
+        case 'week':
+          periodStartDate.setDate(periodStartDate.getDate() + frequency * 7);
+          break;
+        case 'year':
+          periodStartDate.setFullYear(periodStartDate.getFullYear() + frequency);
+          break;
+        case 'day':
+          periodStartDate.setDate(periodStartDate.getDate() + frequency);
+          break;
+        default:
+          res.status(400).json({ message: `Unsupported contribution unit: ${unit}` });
+          return;
+      }
+
+    }
+
+    // Bulk create contributions
+    //const createdContributions = await MahberContribution.bulkCreate(contributions);
+
+    res.status(201).json({ message: 'Demo contributions created successfully.', contributions: contributions });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Failed to create demo contributions.' });
   }
 };
