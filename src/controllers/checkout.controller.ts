@@ -221,15 +221,29 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           transfer_data: {
             destination: mahber.stripe_account_id
           }
+        },
+        payment_intent_data: {
+          metadata: {
+            session_id: generatedSessionId,
+          }
         }
       });
 
-      const member = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
+
+      logger.info(`Stripe Checkout session created updating member: ${JSON.stringify(session.id)}`);
+
+      try {
+        await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
+        logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
+      } catch (error) {
+        logger.info(`Failed Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
+        logger.error(`Failed to save Stripe session ID: ${error}`);
+      }
       // Save subscription ID in the Member table
       const subscriptionId = session.subscription;
       if (subscriptionId) {
-        const member = await saveStripeSubscriptionId(String(req.user.id), String(mahber.id), String(subscriptionId));
-        console.log(`Updated member ${member ? req.user.id : 'unknown'} with subscription ID ${String(subscriptionId)}`);
+        const updatedMember = await saveStripeSubscriptionId(String(req.user.id), String(mahber.id), String(subscriptionId));
+        console.log(`Updated member ${updatedMember ? req.user.id : 'unknown'} with subscription ID ${String(subscriptionId)}`);
       }
     } else {
       if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -257,13 +271,14 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           }
         }
       });
+    }
 
       // If no contribution IDs are provided, create a payment record without linking to contributions
       if (contributionIds.length === 0) {
         await Payment.create({
           stripe_payment_id: generatedSessionId,
           receipt_url: String(session.url) ?? '',
-          method: 'one-time',
+          method: paymentType === 'subscription' ? 'subscription' : 'one-time',
           contribution_id: '', // No contribution ID
           member_id: Number(req.user?.id) ?? '',
           amount,
@@ -271,7 +286,6 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           status: 'processing'
         });
       }
-    }
 
     if (contributionIds.length > 0) {
       await handlePendingPaymentsAndContributions(contributionIds, session, req, paymentType, amount || 0);
