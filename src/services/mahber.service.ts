@@ -3,14 +3,13 @@ import { Member } from '../models/member.model';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 import sequelize from '../config/db';
 import { Op } from 'sequelize';
-import Stripe from 'stripe';
 import { Sequelize } from 'sequelize';
 import { generateContributionChangeNoticeEmail } from '../controllers/email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust the import based on your project structure
 import { User } from '../models/user.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
+import stripeClient from '../config/stripe.config';
+import { Stripe } from 'stripe';
 
 export const createMahber = async (mahber: Omit<Mahber, 'id' | 'created_at' | 'updated_at'>): Promise<Mahber> => {
   const created = await Mahber.create(mahber);
@@ -23,7 +22,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
     const now = new Date();
 
     // Create Stripe product for this Mahber
-    const product = await stripe.products.create({
+    const product = await stripeClient.products.create({
       name: payload.name,
       // description: payload.description,
       metadata: {
@@ -45,7 +44,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
               interval_count: Number(payload.contribution_frequency)
             }
           : undefined;
-      const price = await stripe.prices.create({
+      const price = await stripeClient.prices.create({
         product: product.id,
         unit_amount: Math.round(Number(payload.contribution_amount) * 100), // Stripe expects amount in cents
         currency: 'usd', // or use payload.currency if available
@@ -300,7 +299,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
 
   if (shouldUpdateProduct) {
     // Create a new Stripe product with updated info
-    const product = await stripe.products.create({
+    const product = await stripeClient.products.create({
       name: updated.name || mahber.name,
       // description: updated.description || mahber.description,
       metadata: {
@@ -321,7 +320,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
       interval: interval as Stripe.Price.Recurring.Interval,
       interval_count: Number(interval_count)
     };
-    const price = await stripe.prices.create({
+    const price = await stripeClient.prices.create({
       product: product.id,
       unit_amount: Math.round(Number(updated.contribution_amount || mahber.contribution_amount) * 100),
       currency: 'usd',
@@ -336,7 +335,7 @@ export const updateMahber = async (id: number, updated: Partial<Mahber>, userId:
       interval: interval as Stripe.Price.Recurring.Interval,
       interval_count: Number(interval_count)
     };
-    const price = await stripe.prices.create({
+    const price = await stripeClient.prices.create({
       product: stripe_product_id,
       unit_amount: Math.round(Number(mahber.contribution_amount) * 100),
       currency: 'usd',
@@ -396,7 +395,7 @@ export const checkMahberStripeAccount = async (mahberId: number) => {
   const mahber = await Mahber.findByPk(mahberId);
   if (!mahber) return false;
 
-  const account = await stripe.accounts.retrieve(mahber.stripe_account_id);
+  const account = await stripeClient.accounts.retrieve(mahber.stripe_account_id);
   if (account && account.deleted) {
     // If the account was deleted, we should remove the stripe_account_id from the Mahber
     await mahber.update({ stripe_account_id: '' });

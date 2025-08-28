@@ -13,7 +13,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-07-30.basil' as any});
 const ACCESS_TOKEN_EXPIRES_IN = '30m';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
 

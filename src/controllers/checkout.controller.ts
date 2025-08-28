@@ -1,7 +1,6 @@
 // checkout controller
 
 import { Response, Request } from 'express';
-import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById } from '../services/mahber.service';
@@ -12,9 +11,9 @@ import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op, WhereOptions, QueryTypes } from 'sequelize';
 import sequelize from '../config/db'; // Adjust the path to your actual Sequelize instance
 import logger from '../utils/logger';
+import stripeClient from '../config/stripe.config';
 
 dotenv.config();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make this 30 minutes
 
 // Helper to validate Mahber and user
@@ -43,7 +42,7 @@ async function validateMahberAndUser(mahberId: number, userId: number) {
 // Helper to ensure Stripe customer exists
 async function ensureStripeCustomer(user: any) {
   if (!user.stripe_id) {
-    const stripeCustomer = await stripe.customers.create({
+    const stripeCustomer = await stripeClient.customers.create({
       email: user.email,
       name: user.full_name,
       phone: user.phone
@@ -80,7 +79,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
   const success_url = `${baseFrontendUrl}/stripe/success`;
   const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
     
-  const session = await stripe.checkout.sessions.create({
+  const session = await stripeClient.checkout.sessions.create({
     payment_method_types: ['card', 'us_bank_account'],
     mode: paymentType === 'subscription' ? 'subscription' : 'payment',
     customer: stripeCustomerId,
@@ -148,7 +147,7 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
   if (activeSession) {
     logger.info(`Active session found: ${JSON.stringify(activeSession)}`);
     if (typeof activeSession.session_id === 'string') {
-      const session = await stripe.checkout.sessions.retrieve(activeSession.session_id);
+      const session = await stripeClient.checkout.sessions.retrieve(activeSession.session_id);
       if (session && session.status === 'open' && session.expires_at > tenMinutesFromNow) {
         logger.info(`Returning active session: ${session.id}`);
         return session;

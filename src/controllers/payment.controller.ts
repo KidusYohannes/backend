@@ -1,5 +1,4 @@
 import { Response, Request } from 'express';
-import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById, updateMahber } from '../services/mahber.service';
@@ -10,9 +9,10 @@ import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { User } from '../models/user.model';
 import { Op } from 'sequelize';
+import stripeClient from '../config/stripe.config';
+import Stripe from 'stripe';
 
 dotenv.config();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 
 export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response) => {
@@ -42,7 +42,7 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
         capabilities: { transfers: { requested: true } },
       };
       // Stripe AccountCreateParams does not support 'description', so skip this assignment
-      const account = await stripe.accounts.create(stripeAccountPayload);
+      const account = await stripeClient.accounts.create(stripeAccountPayload);
       accountId = account.id;
       mahber.stripe_account_id = accountId;
       await updateMahber(Number(req.params.id), mahber, req.user.id);
@@ -50,7 +50,7 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     // Use refresh_url and return_url from request body, fallback to defaults if not provided
     const refreshUrl = req.body.refresh_url || "https://yenetech.com/stripe/refresh";
     const returnUrl = req.body.return_url || "https://yenetech.com/stripe/return";
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await stripeClient.accountLinks.create({
       account: accountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,
@@ -113,7 +113,7 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
 
   // Ensure Stripe customer exists
   if (!user.stripe_id) {
-    const stripeCustomer = await stripe.customers.create({
+    const stripeCustomer = await stripeClient.customers.create({
       email: user.email,
       name: user.full_name,
       phone: user.phone
@@ -138,7 +138,7 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
   }
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await stripeClient.paymentIntents.create({
       amount: req.body.amount,
       currency: 'usd',
       payment_method_types: ['card'],
@@ -212,7 +212,7 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
 
   // Ensure Stripe customer exists
   if (!user.stripe_id) {
-    const stripeCustomer = await stripe.customers.create({
+    const stripeCustomer = await stripeClient.customers.create({
       email: user.email,
       name: user.full_name,
       phone: user.phone
@@ -236,7 +236,7 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
   }
 
   try {
-    const subscription = await stripe.subscriptions.create({
+    const subscription = await stripeClient.subscriptions.create({
       customer: user.stripe_id,
       items: [{ price: price_id }],
       default_payment_method: finalPaymentMethodId,
@@ -302,7 +302,7 @@ export const unsubscribeFromMahberSubscription = async (req: AuthenticatedReques
   }
   try {
     // Cancel the Stripe subscription
-    await stripe.subscriptions.cancel(String(member.stripe_subscription_id));
+    await stripeClient.subscriptions.cancel(String(member.stripe_subscription_id));
     // Optionally, clear the subscription ID from the member record
     await member.update({ stripe_subscription_id: '' });
     res.json({ message: 'Successfully unsubscribed from Mahber Stripe subscription.' });

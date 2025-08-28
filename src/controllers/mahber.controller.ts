@@ -3,13 +3,11 @@ import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, upda
 import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { getUserById } from '../services/user.service';
 import { Op } from 'sequelize';
+import stripeClient from '../config/stripe.config';
 dotenv.config();
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
@@ -198,9 +196,9 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
     return;
   }
   const user = await getUserById(Number(mahber.created_by));
-  const account = await stripe.accounts.create({
+  const account = await stripeClient.accounts.create({
       type: "express",
-      country: "US", // or ET if Ethiopia is supported
+      country: "US",
       email: user?.email,
       capabilities: {
         transfers: { requested: true },
@@ -211,7 +209,7 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
   const updated = await updateMahber(Number(req.params.id), mahber, req.user.id);
   // await mahber.save();
 
-  const accountLink = await stripe.accountLinks.create({
+  const accountLink = await stripeClient.accountLinks.create({
     account: mahber.stripe_account_id,
     refresh_url: "https://yenetech.com/stripe/refresh",
     return_url: "https://yenetech.com/stripe/return",

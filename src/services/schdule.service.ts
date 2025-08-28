@@ -3,17 +3,17 @@ import { checkMahberStripeAccount } from "./mahber.service";
 import { Mahber } from "../models/mahber.model";
 import { Member } from "../models/member.model";
 import { Op, WhereOptions } from "sequelize";
-import Stripe from "stripe";
 import { Payment } from "../models/payment.model";
 import { MahberContribution } from "../models/mahber_contribution.model";
+import stripeClient from '../config/stripe.config';
+import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
- /**
-  * Scheduler to check Stripe accounts for Mahbers
-  * This runs every 2 hours at minute 0.
-  * It checks for Mahbers that have a Stripe account ID but are not active
-  * and calls the checkMahberStripeAccount function to verify their status.
-  */
+/**
+ * Scheduler to check Stripe accounts for Mahbers
+ * This runs every 2 hours at minute 0.
+ * It checks for Mahbers that have a Stripe account ID but are not active
+ * and calls the checkMahberStripeAccount function to verify their status.
+ */
 cron.schedule('* * * * *', async () => {
   console.log('Running Scheduler to check Stripe accounts for Mahbers...');
   // call your service logic here
@@ -80,6 +80,10 @@ cron.schedule('* * * * *', async () => {
  * | `0 0 * * 6,0` | Every weekend at midnight |
  * | `0 0 1-7 * *` | First 7 days of every month |
  * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
+ * | `0 0 * * 1-5` | Every weekday at midnight |
+ * | `0 0 * * 6,0` | Every weekend at midnight |
+ * | `0 0 1-7 * *` | First 7 days of every month |
+ * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
  * | `0 0 * * * 1-5` | Every weekday at midnight |
  * | `0 0 * * * 6,0` | Every weekend at midnight |
  * | `0 0 1-7 * *` | First 7 days of every month |
@@ -115,7 +119,7 @@ cron.schedule('0 */2 * * *', async () => {
 
     // Create product if missing
     if (!mahber.stripe_product_id) {
-      const product = await stripe.products.create({
+      const product = await stripeClient.products.create({
         name: mahber.name,
         metadata: {
           contribution_unit: mahber.contribution_unit || '',
@@ -144,7 +148,7 @@ cron.schedule('0 */2 * * *', async () => {
         interval: interval as Stripe.Price.Recurring.Interval,
         interval_count: Number(interval_count)
       };
-      const price = await stripe.prices.create({
+      const price = await stripeClient.prices.create({
         product: productId,
         unit_amount: Math.round(Number(mahber.contribution_amount) * 100),
         currency: 'usd',
@@ -181,7 +185,7 @@ cron.schedule('* * * * *', async () => {
 
   for (const member of members) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(member.stripe_session_id as string);
+      const session = await stripeClient.checkout.sessions.retrieve(member.stripe_session_id as string);
       const subscriptionId = session.subscription as string | null;
       if (subscriptionId) {
         await member.update({ stripe_subscription_id: subscriptionId });
@@ -217,10 +221,10 @@ cron.schedule('* * * * *', async () => {
 
   for (const member of members) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(member.stripe_subscription_id as string);
+      const subscription = await stripeClient.subscriptions.retrieve(member.stripe_subscription_id as string);
       if (subscription.status === 'active') {
         // Get the latest paid invoice for this subscription
-        const invoices = await stripe.invoices.list({
+        const invoices = await stripeClient.invoices.list({
           subscription: subscription.id,
           limit: 1,
           status: 'paid'
@@ -292,7 +296,7 @@ cron.schedule('* * * * *', async () => {
 
   for (const payment of payments) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(payment.session_id as string, {
+      const session = await stripeClient.checkout.sessions.retrieve(payment.session_id as string, {
         expand: ['payment_intent', 'subscription']
       });
       console.log(`Processing session ${session.id}`);
@@ -303,7 +307,7 @@ cron.schedule('* * * * *', async () => {
 
         let receiptUrl: string = session.url || '';
         if (paymentIntent.id) {
-          const chargesList = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
+          const chargesList = await stripeClient.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
           if (chargesList.data.length > 0) {
             receiptUrl = chargesList.data[0].receipt_url || receiptUrl;
           }

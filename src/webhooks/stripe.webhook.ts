@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
-import Stripe from 'stripe';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Mahber } from '../models/mahber.model';
 import { Op } from 'sequelize';
 import { Member } from '../models/member.model';
 import logger from '../utils/logger';
+import stripeClient from '../config/stripe.config';
+import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-06-30.basil' });
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
 
 export const stripeWebhookHandler = async (req: Request, res: Response) => {
@@ -17,7 +17,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
   logger.info('Stripe webhook received. Verifying signature...');
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig as string, STRIPE_WEBHOOK_SECRET);
+    event = stripeClient.webhooks.constructEvent(req.body, sig as string, STRIPE_WEBHOOK_SECRET);
     logger.info(`Stripe webhook signature verified. Event type: ${event.type}`);
     logger.debug(`Webhook payload: ${JSON.stringify(event)}`);
   } catch (err: any) {
