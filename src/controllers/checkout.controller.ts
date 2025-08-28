@@ -228,14 +228,18 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         }
       });
 
-
+      const updatedCount = await Member.update(
+        { stripe_session_id: session.id },
+        { where: { edir_id: mahber.id, member_id: req.user.id } }
+      );
+      logger.info(`Updated ${updatedCount} member(s) with session ID ${session.id}`);
       logger.info(`Stripe Checkout session created updating member: ${JSON.stringify(session.id)}`);
 
       try {
         const member = await Member.findOne({ where: { edir_id: String(mahber.id), member_id: String(req.user.id) } });
         if(member){
           const updatedMember = await member.update({ stripe_session_id: session.id });
-          logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
+          logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id} member ${JSON.stringify(updatedMember)}`);
         }else{
           logger.warn(`Member not found for edir_id: ${String(mahber.id)} and member_id: ${String(req.user.id)}`);
         }
