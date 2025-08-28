@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/db';
+import logger from '../utils/logger';
 
 interface MemberAttributes {
   id: number;
@@ -46,7 +47,13 @@ Member.init(
 export async function saveStripeSessionId(edirId: string, memberId: string, sessionId: string): Promise<boolean> {
   const member = await Member.findOne({ where: { edir_id: edirId, member_id: memberId } });
   if (!member) return false;
-  await member.update({ stripe_session_id: sessionId });
+  try {
+    await member.update({ stripe_session_id: sessionId });
+    logger.info(`Updated Member model stripe_session_id for member ${memberId} in edir ${edirId}`);
+  } catch (error) {
+    logger.error('Error updating Member model stripe_session_id:', error);
+    return false;
+  }
   return true;
 }
 

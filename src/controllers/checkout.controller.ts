@@ -232,7 +232,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       logger.info(`Stripe Checkout session created updating member: ${JSON.stringify(session.id)}`);
 
       try {
-        await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
+        const memeber = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
         logger.info(`Saved Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
       } catch (error) {
         logger.info(`Failed Stripe session ID ${session.id} for member ${req.user.id} and mahber ${mahber.id}`);
