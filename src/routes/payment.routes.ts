@@ -10,6 +10,7 @@ import {
 } from '../controllers/payment.controller';
 import { createCheckoutPayment } from '../controllers/checkout.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { createDonationPayment } from '../controllers/donationCheckout.controller';
 
 const router = Router();
 
@@ -33,6 +34,9 @@ router.post(
 	  Promise.resolve(createCheckoutPayment(req, res)).catch(next);
   }
 );
+
+// donation checkout
+router.post('/:id/checkout/donation', authenticateToken, createDonationPayment);
 
 // User payment reports (paginated, descending order)
 router.get( '/reports/my', authenticateToken, getUserPaymentReports );
