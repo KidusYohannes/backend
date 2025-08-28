@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { Payment } from '../models/payment.model';
 import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
+import { log } from 'console';
 
 dotenv.config();
 
@@ -91,6 +92,8 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
         payment_type: 'donation'
       }
     });
+
+    logger.info(`Stripe Checkout session created: ${JSON.stringify(session.id)}`);
 
     const paymentId = generateUniquePaymentId();
 
