@@ -220,9 +220,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         subscription_data: {
           transfer_data: {
             destination: mahber.stripe_account_id
-          }
-        },
-        payment_intent_data: {
+          },
           metadata: {
             session_id: generatedSessionId,
           }
