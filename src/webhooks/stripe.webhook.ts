@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
 import Stripe from 'stripe';
 
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
+const STRIPE_WEBHOOK_SECRET = 'whsec_nuLjB1f4bWbiG6SXz8YnaqP6QUPRJ58h'; //process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
 
 export const stripeWebhookHandler = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'];
