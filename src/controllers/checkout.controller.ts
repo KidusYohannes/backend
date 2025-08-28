@@ -279,7 +279,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           method: paymentType === 'subscription' ? 'subscription' : 'one-time',
           contribution_id: '', // No contribution ID
           member_id: Number(req.user?.id) ?? '',
-          amount,
+          amount: amount,
           session_id: String(session.id),
           status: 'processing'
         });
