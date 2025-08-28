@@ -143,10 +143,14 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
           }
 
           await payment.update({ status: 'paid', receipt_url: receiptUrl });
-          await MahberContribution.update(
-            { status: 'paid', amount_paid: paidAmount },
-            { where: { id: payment.contribution_id } }
-          );
+          if(payment.contribution_id !== 'donation') {
+            await MahberContribution.update(
+              { status: 'paid', amount_paid: paidAmount },
+              { where: { id: payment.contribution_id } }
+            );
+          }else{
+            logger.info('Payment is a donation, skipping MahberContribution update.');
+          }
 
           logger.info(`Payment updated with status 'paid' and receipt URL: ${receiptUrl}`);
         } else {
