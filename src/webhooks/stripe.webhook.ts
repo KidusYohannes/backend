@@ -131,12 +131,24 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
 
         if (payment) {
           logger.info(`Updating payment status to paid for paymentIntent ID: ${paymentIntent.id}`);
-          const paidAmount = payment.amount / 100;
-          await payment.update({ status: 'paid' });
+
+          // Retrieve receipt URL from charges if available
+          let receiptUrl = payment.receipt_url || '';
+          let paidAmount = payment.amount / 100;
+          const chargeId = paymentIntent.latest_charge as string;
+
+          if (chargeId) {
+            const charge = await stripeClient.charges.retrieve(chargeId);
+            receiptUrl = charge.receipt_url ?? '';
+          }
+
+          await payment.update({ status: 'paid', receipt_url: receiptUrl });
           await MahberContribution.update(
             { status: 'paid', amount_paid: paidAmount },
             { where: { id: payment.contribution_id } }
           );
+
+          logger.info(`Payment updated with status 'paid' and receipt URL: ${receiptUrl}`);
         } else {
           logger.warn(`No payment found for paymentIntent ID: ${paymentIntent.id}`);
         }
