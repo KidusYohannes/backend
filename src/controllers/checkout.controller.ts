@@ -92,6 +92,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
       mahber_id: mahber.id.toString(),
       member_id: req.user?.id?.toString() ?? '',
       // contribution_ids: contributionIds.map(String), // Ensure IDs are strings
+      session_id: '{CHECKOUT_SESSION_ID}',
       paymentType
     },
     expires_at
