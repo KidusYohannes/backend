@@ -7,7 +7,7 @@ const logFormat = format.combine(
 );
 
 const logger = createLogger({
-  level: 'info',
+  level: 'silly', // Include all log levels
   format: logFormat,
   transports: [
     new transports.Console(),
