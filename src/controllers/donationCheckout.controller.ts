@@ -9,6 +9,7 @@ import stripeClient from '../config/stripe.config';
 import { log } from 'console';
 
 dotenv.config();
+const generatedSessionId = generateUniquePaymentId();
 
 function generateUniquePaymentId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -90,16 +91,24 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
         mahber_id: mahber.id.toString(),
         user_id: req.user.id.toString(),
         payment_type: 'donation'
+      },
+      payment_intent_data: {
+        setup_future_usage: 'off_session',
+        transfer_data: {
+            destination: mahber.stripe_account_id
+        },
+        metadata: {
+            session_id: generatedSessionId,
+        }
       }
     });
 
     logger.info(`Stripe Checkout session created: ${JSON.stringify(session.id)}`);
 
-    const paymentId = generateUniquePaymentId();
 
     // Record the payment in the database
     await Payment.create({
-      stripe_payment_id: String(paymentId),
+      stripe_payment_id: String(generatedSessionId),
       receipt_url: String(session.url) ?? '',
       method: 'one-time',
       contribution_id: 'donation', // No contribution ID for donations
