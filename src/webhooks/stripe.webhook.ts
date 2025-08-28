@@ -8,7 +8,8 @@ import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
 import Stripe from 'stripe';
 
-const STRIPE_WEBHOOK_SECRET = 'whsec_nuLjB1f4bWbiG6SXz8YnaqP6QUPRJ58h'; //process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
+const STRIPE_WEBHOOK_SECRET_CONNECTED = 'whsec_nuLjB1f4bWbiG6SXz8YnaqP6QUPRJ58h'; //process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
+const STRIPE_WEBHOOK_SECRET_PLATFORM = 'whsec_q0ILAlj9diGxfnoARGIfFPHGdzUK3lWH'; //process.env.STRIPE_WEBHOOK_SECRET || 'whsec_po6GBW4IGS2AcjaMH59yqdHHU0yssO41';
 
 export const stripeWebhookHandler = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'];
@@ -17,13 +18,20 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
   logger.info('Stripe webhook received. Verifying signature...');
 
   try {
-    event = stripeClient.webhooks.constructEvent(req.body, sig as string, STRIPE_WEBHOOK_SECRET);
-    logger.info(`Stripe webhook signature verified. Event type: ${event.type}`);
-    logger.debug(`Webhook payload: ${JSON.stringify(event)}`);
-  } catch (err: any) {
-    logger.error(`Stripe webhook signature verification failed: ${err.message}`);
-    res.status(400).send(`Webhook Error: ${err.message}`);
-    return;
+    // Try verifying with the connected account secret
+    event = stripeClient.webhooks.constructEvent(req.body, sig as string, STRIPE_WEBHOOK_SECRET_CONNECTED);
+    logger.info(`Stripe webhook signature verified with connected secret. Event type: ${event.type}`);
+  } catch (errConnected: any) {
+    try {
+      // If verification with connected secret fails, try with the platform secret
+      event = stripeClient.webhooks.constructEvent(req.body, sig as string, STRIPE_WEBHOOK_SECRET_PLATFORM);
+      logger.info(`Stripe webhook signature verified with platform secret. Event type: ${event.type}`);
+    } catch (errPlatform: any) {
+      // If both verifications fail, log the error and return a 400 response
+      logger.error(`Stripe webhook signature verification failed: ${errConnected.message} | ${errPlatform.message}`);
+      res.status(400).send(`Webhook Error: ${errConnected.message} | ${errPlatform.message}`);
+      return;
+    }
   }
 
   try {
