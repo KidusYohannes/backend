@@ -92,7 +92,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
       mahber_id: mahber.id.toString(),
       member_id: req.user?.id?.toString() ?? '',
       // contribution_ids: contributionIds.map(String), // Ensure IDs are strings
-      session_id: '{CHECKOUT_SESSION_ID}',
+      session_id: `{CHECKOUT_SESSION_ID}`,
       paymentType
     },
     expires_at
@@ -250,6 +250,9 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
           setup_future_usage: 'off_session',
           transfer_data: {
             destination: mahber.stripe_account_id
+          },
+          metadata: {
+            session_id: `{CHECKOUT_SESSION_ID}`,
           }
         }
       });
