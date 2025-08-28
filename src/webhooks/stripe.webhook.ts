@@ -45,7 +45,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         if (payment) {
           logger.info(`Payment found for session ID: ${session.id}`);
           await payment.update({
-            status: 'in_progress',
+            status: 'processing',
             stripe_payment_id: session.payment_intent as string || payment.stripe_payment_id
           });
         } else {
@@ -76,7 +76,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         if (payment) {
           logger.info(`Payment found for session ID: ${session.id}`);
           await payment.update({
-            status: 'in_progress',
+            status: 'processing',
             stripe_payment_id: session.payment_intent as string || payment.stripe_payment_id
           });
         } else {
