@@ -9,21 +9,14 @@ import stripeClient from '../config/stripe.config';
 
 dotenv.config();
 
-async function generateUniquePaymentId(): Promise<string> {
-  let id: string;
-  let exists: boolean;
-
-  do {
-    id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Date.now() + Math.random() * 16) % 16 | 0;
-      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-
-    exists = await Payment.findOne({ where: { stripe_payment_id: id } }) !== null;
-  } while (exists);
-
-  return id;
+function generateUniquePaymentId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
+
 
 export const createDonationPayment = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -72,6 +65,7 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       user.stripe_id = stripeCustomer.id;
     }
 
+    logger.info(`Creating Stripe Checkout session for donation: ${JSON.stringify({ amount, description, currency })}`);
     const success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`;
     const cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`;
 
@@ -98,7 +92,7 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       }
     });
 
-    const paymentId = await generateUniquePaymentId();
+    const paymentId = generateUniquePaymentId();
 
     // Record the payment in the database
     await Payment.create({
