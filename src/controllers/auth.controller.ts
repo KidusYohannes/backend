@@ -5,12 +5,14 @@ import {
   validateUserPassword,
   findUserByEmail,
   activateUser,
-  updateUser
+  updateUser,
+  getUserById
 } from '../services/user.service';
 import { generateForgotPasswordEmail } from './email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust import if needed
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import logger from '../utils/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-07-30.basil' as any});
@@ -105,7 +107,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 };
 
 export const generateResetPasswordToken = async (req: Request, res: Response) => {
-  const { email } = req.body;
+  const { email, token } = req.body;
   if (!email) {
     res.status(400).json({ message: 'Email is required' });
     return;
@@ -115,6 +117,15 @@ export const generateResetPasswordToken = async (req: Request, res: Response) =>
     res.status(404).json({ message: 'User not found' });
     return;
   }
+  if (user.link_token !== token) {
+    res.status(400).json({ message: 'Invalid token or email: ' + user.link_token + ' : ' + token });
+    return;
+  }
+  if (!user.token_expiration || new Date(user.token_expiration) < new Date()) {
+    res.status(400).json({ message: 'Token expired' });
+    return;
+  }
+
   // Generate a temporary token that expires in 30 minutes
   const tempToken = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30m' });
   res.json({ tempToken });
@@ -132,7 +143,9 @@ export const resetPasswordWithToken = async (req: Request, res: Response) => {
   const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { userId: number };
-    const user = await findUserByEmail(String(payload.userId));
+    logger.info(`Resetting password for userId: ${payload}`);
+    logger.info(`Resetting password for userId: ${payload.userId}`);
+    const user = await getUserById(Number(payload.userId));
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;

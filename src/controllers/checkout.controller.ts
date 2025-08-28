@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { getUserById, updateUser } from '../services/user.service';
 import { getMahberById } from '../services/mahber.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { saveStripeSessionId } from '../models/member.model';
+import { saveStripeSessionId, saveStripeSubscriptionId } from '../models/member.model';
 import { Payment } from '../models/payment.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import { Op, WhereOptions, QueryTypes } from 'sequelize';
@@ -224,10 +224,11 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         }
       });
 
+      const member = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(session.id));
       // Save subscription ID in the Member table
       const subscriptionId = session.subscription;
       if (subscriptionId) {
-        const member = await saveStripeSessionId(String(req.user.id), String(mahber.id), String(subscriptionId));
+        const member = await saveStripeSubscriptionId(String(req.user.id), String(mahber.id), String(subscriptionId));
         console.log(`Updated member ${member ? req.user.id : 'unknown'} with subscription ID ${String(subscriptionId)}`);
       }
     } else {

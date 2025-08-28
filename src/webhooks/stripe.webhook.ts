@@ -52,14 +52,28 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
           logger.warn(`No payment found for session ID: ${session.id}`);
         }
 
+        // if (session.subscription) {
+        //   const subscriptionId = session.subscription as string;
+        //   const member = await Member.findOne({ where: { stripe_session_id: session.id } });
+        //   if (member) {
+        //     logger.info(`Updating member ${member.id} with subscription ID: ${subscriptionId}`);
+        //     await member.update({ stripe_subscription_id: subscriptionId });
+        //   } else {
+        //     logger.warn(`No member found for session ID: ${session.id}`);
+        //   }
+        // }
+
+        // 🔥 Save the subscription ID
         if (session.subscription) {
           const subscriptionId = session.subscription as string;
+
+          // assuming you have stripe_session_id stored on the Member model
           const member = await Member.findOne({ where: { stripe_session_id: session.id } });
           if (member) {
-            logger.info(`Updating member ${member.id} with subscription ID: ${subscriptionId}`);
             await member.update({ stripe_subscription_id: subscriptionId });
+            logger.info(`Stored subscription ID (${subscriptionId}) for member ${member.id}`);
           } else {
-            logger.warn(`No member found for session ID: ${session.id}`);
+            logger.warn(`No member found with stripe_session_id = ${session.id}`);
           }
         }
 
@@ -81,6 +95,20 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
           });
         } else {
           logger.warn(`No payment found for session ID: ${session.id}`);
+        }
+
+        // 🔥 Save the subscription ID
+        if (session.subscription) {
+          const subscriptionId = session.subscription as string;
+
+          // assuming you have stripe_session_id stored on the Member model
+          const member = await Member.findOne({ where: { stripe_session_id: session.id } });
+          if (member) {
+            await member.update({ stripe_subscription_id: subscriptionId });
+            logger.info(`Stored subscription ID (${subscriptionId}) for member ${member.id}`);
+          } else {
+            logger.warn(`No member found with stripe_session_id = ${session.id}`);
+          }
         }
 
         logger.info(`Checkout session async payment succeeded for session ID: ${session.id}`);
