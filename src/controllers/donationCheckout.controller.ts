@@ -102,8 +102,8 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       stripe_payment_id: String(paymentId),
       receipt_url: String(session.url) ?? '',
       method: 'one-time',
-      contribution_id: '', // No contribution ID for donations
-      member_id: req.user.id,
+      contribution_id: 'donation', // No contribution ID for donations
+      member_id:  Number(req.user?.id) ?? '',
       amount: amount,
       session_id: String(session.id),
       status: 'processing'
