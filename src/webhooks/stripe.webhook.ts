@@ -131,9 +131,10 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
 
         if (payment) {
           logger.info(`Updating payment status to paid for paymentIntent ID: ${paymentIntent.id}`);
+          const paidAmount = payment.amount / 100;
           await payment.update({ status: 'paid' });
           await MahberContribution.update(
-            { status: 'paid', amount_paid: payment.amount },
+            { status: 'paid', amount_paid: paidAmount },
             { where: { id: payment.contribution_id } }
           );
         } else {
