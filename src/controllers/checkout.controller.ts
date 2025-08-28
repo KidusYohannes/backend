@@ -16,6 +16,7 @@ import stripeClient from '../config/stripe.config';
 dotenv.config();
 const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make this 30 minutes
 
+const generatedSessionId = uuidv4();
 // Helper to validate Mahber and user
 async function validateMahberAndUser(mahberId: number, userId: number) {
   logger.info(`Validating Mahber ID: ${mahberId}, User ID: ${userId}`);
@@ -111,7 +112,7 @@ async function handlePendingPaymentsAndContributions(contributionIds: number[], 
     const receipt_url = session.url ?? null;
     const contributionIdString = contributionIds.join(','); // Combine contribution IDs into a comma-separated string
     await Payment.create({
-      stripe_payment_id: String(session.payment_intent),
+      stripe_payment_id: generatedSessionId,
       receipt_url: String(receipt_url),
       method: paymentType === 'subscription' ? 'subscription' : 'one-time',
       contribution_id: contributionIdString,
@@ -252,7 +253,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
             destination: mahber.stripe_account_id
           },
           metadata: {
-            session_id: `{CHECKOUT_SESSION_ID}`,
+            session_id: generatedSessionId,
           }
         }
       });
@@ -260,7 +261,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       // If no contribution IDs are provided, create a payment record without linking to contributions
       if (contributionIds.length === 0) {
         await Payment.create({
-          stripe_payment_id: String(session.payment_intent),
+          stripe_payment_id: generatedSessionId,
           receipt_url: String(session.url) ?? '',
           method: 'one-time',
           contribution_id: '', // No contribution ID
@@ -283,3 +284,11 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ message: error.message || 'Failed to create checkout session' });
   }
 };
+function uuidv4(): string {
+  // Generates a RFC4122 version 4 UUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}

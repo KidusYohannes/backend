@@ -123,7 +123,7 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
         let payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.id } });
         if (!payment && paymentIntent.metadata && paymentIntent.metadata.session_id) {
           logger.info(`No payment found by payment_intent ID. Trying session_id: ${paymentIntent.metadata.session_id}`);
-          payment = await Payment.findOne({ where: { session_id: paymentIntent.metadata.session_id } });
+          payment = await Payment.findOne({ where: { stripe_payment_id: paymentIntent.metadata.session_id } });
           if (payment) {
             await payment.update({ stripe_payment_id: paymentIntent.id });
           }
