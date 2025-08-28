@@ -36,7 +36,7 @@ router.post(
 );
 
 // donation checkout
-router.post('/:id/checkout/donation', authenticateToken, createDonationPayment);
+router.post('/:id/donation', authenticateToken, createDonationPayment);
 
 // User payment reports (paginated, descending order)
 router.get( '/reports/my', authenticateToken, getUserPaymentReports );
