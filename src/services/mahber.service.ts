@@ -75,6 +75,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
       address: payload.address,
       zip_code: payload.zip_code,
       created_at: now,
+      bylaws: payload.bylaws || '',
       featured: payload.is_featured || "false",
       promoted: payload.is_promoted || "false",
       visibility: payload.visibility || 'public', // default to public if not provided

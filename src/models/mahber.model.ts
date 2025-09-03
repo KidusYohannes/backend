@@ -24,6 +24,7 @@ interface MahberAttributes {
   state?: string;
   city?: string;
   address?: string;
+  bylaws?: string;
   zip_code?: string;
   visibility?: string; // new column for visibility
   featured?: string; // new column for featured status, 1 is on 0 is off
@@ -55,6 +56,7 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public state?: string;
   public city?: string;
   public address?: string;
+  public bylaws?: string;
   public zip_code?: string;
   public visibility?: string; // new column for visibility
   public featured?: string; // new column for featured status, 1 is on 0 is off
@@ -85,6 +87,7 @@ Mahber.init(
     state: { type: DataTypes.STRING },
     city: { type: DataTypes.STRING },
     address: { type: DataTypes.STRING },
+    bylaws: { type: DataTypes.STRING },
     zip_code: { type: DataTypes.STRING },
     visibility: { type: DataTypes.STRING }, // new column for visibility
     featured: { type: DataTypes.STRING }, // new column for featured status, 1 is on 0 is off

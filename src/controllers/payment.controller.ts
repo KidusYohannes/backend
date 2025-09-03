@@ -15,39 +15,53 @@ import Stripe from 'stripe';
 dotenv.config();
 
 
+// Helper to check if the authenticated user is an admin of the Mahber
+async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolean> {
+  const adminMember = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId,
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+  return !!adminMember;
+}
+
+
 export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
+
   const mahberId = Number(req.params.id);
+  if (!(await isAdminOfMahber(req.user.id.toString(), String(mahberId)))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can access the onboarding link.' });
+    return;
+  }
+
   const mahber = await getMahberById(mahberId);
   if (!mahber) {
     res.status(404).json({ message: 'Mahber not found' });
     return;
   }
+
   try {
-    if (!mahber || mahber.created_by !== req.user.id) {
-      res.status(404).json({ message: 'Mahiber not found or not authorized' });
-      return;
-    }
-    const user = await getUserById(Number(mahber.created_by));
     let accountId = mahber.stripe_account_id;
     if (!accountId) {
-      // Only include description if it's non-empty
       const stripeAccountPayload: Stripe.AccountCreateParams = {
         type: "express",
-        country: "US", // or ET if Ethiopia is supported
-        email: user?.email,
+        country: "US",
+        email: (await getUserById(Number(mahber.created_by)))?.email,
         capabilities: { transfers: { requested: true } },
       };
-      // Stripe AccountCreateParams does not support 'description', so skip this assignment
       const account = await stripeClient.accounts.create(stripeAccountPayload);
       accountId = account.id;
       mahber.stripe_account_id = accountId;
-      await updateMahber(Number(req.params.id), mahber, req.user.id);
+      await updateMahber(mahberId, mahber, req.user.id);
     }
-    // Use refresh_url and return_url from request body, fallback to defaults if not provided
+
     const refreshUrl = req.body.refresh_url || "https://yenetech.com/stripe/refresh";
     const returnUrl = req.body.return_url || "https://yenetech.com/stripe/return";
     const accountLink = await stripeClient.accountLinks.create({
@@ -56,11 +70,9 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
       return_url: returnUrl,
       type: "account_onboarding",
     });
-    res.json({
-      accountLinkUrl: accountLink.url
-    }); 
+
+    res.json({ accountLinkUrl: accountLink.url });
   } catch (error) {
-    console.error('Error creating onboarding link:', error);
     res.status(500).json({ message: 'Failed to create onboarding link: ' + error });
   }
 }
@@ -394,32 +406,15 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
  * Only accessible by Mahber admin/creator (check in route/controller).
  */
 export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Response) => {
-  const mahber_id = Number(req.params.mahber_id);
+  const mahberId = Number(req.params.mahber_id);
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahberId)))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view payment reports.' });
+    return;
+  }
+
   const { page = 1, perPage = 10 } = req.query;
   try {
-    // Check if user is creator or admin of the mahber
-    const mahber = await Mahber.findByPk(mahber_id);
-    if (!mahber) {
-      res.status(404).json({ message: 'Mahber not found' });
-      return;
-    }
-    const userId = String(req.user?.id);
-    const isCreator = String(mahber.created_by) === userId;
-    const isAdmin = await Member.findOne({
-      where: {
-        edir_id: String(mahber_id),
-        member_id: userId,
-        role: 'admin',
-        status: 'accepted'
-      }
-    });
-    if (!isCreator && !isAdmin) {
-      res.status(403).json({ message: 'Forbidden: Only Mahber admins or creator can view payment reports.' });
-      return;
-    }
-
-    // ...existing code for fetching contributions, payments, and formatting response...
-    const contributions = await MahberContribution.findAll({ where: { mahber_id } });
+    const contributions = await MahberContribution.findAll({ where: { mahber_id: mahberId } });
     const contributionIds = contributions.map(c => c.id);
 
     const { rows, count } = await Payment.findAndCountAll({
@@ -435,18 +430,12 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
 
     const data = rows.map(p => ({
       ...p.toJSON(),
-      mahber_id,
-      mahber_name: mahber ? mahber.name : null,
+      mahber_id: mahberId,
       user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
       user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
     }));
 
-    res.json({
-      data,
-      total: count,
-      page: Number(page),
-      perPage: Number(perPage)
-    });
+    res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -458,37 +447,21 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
  * Only accessible by Mahber admin/creator (check in route/controller).
  */
 export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, res: Response) => {
-  const mahber_id = Number(req.params.mahber_id);
+  const mahberId = Number(req.params.mahber_id);
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahberId)))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view current month payments.' });
+    return;
+  }
+
   const { page = 1, perPage = 10 } = req.query;
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  try {
-    // Check if user is creator or admin of the mahber
-    const mahber = await Mahber.findByPk(mahber_id);
-    if (!mahber) {
-      res.status(404).json({ message: 'Mahber not found' });
-      return;
-    }
-    const userId = String(req.user?.id);
-    const isCreator = String(mahber.created_by) === userId;
-    const isAdmin = await Member.findOne({
-      where: {
-        edir_id: String(mahber_id),
-        member_id: userId,
-        role: 'admin',
-        status: 'accepted'
-      }
-    });
-    if (!isCreator && !isAdmin) {
-      res.status(403).json({ message: 'Forbidden: Only Mahber admins or creator can view payment reports.' });
-      return;
-    }
 
-    // ...existing code for fetching contributions, payments, and formatting response...
+  try {
     const contributions = await MahberContribution.findAll({
       where: {
-        mahber_id,
+        mahber_id: mahberId,
         period_start_date: { [Op.gte]: firstDay, [Op.lte]: lastDay }
       }
     });
@@ -501,25 +474,18 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
       order: [['id', 'DESC']]
     });
 
-    // Fetch User info for each payment
     const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
     const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
 
     const data = rows.map(p => ({
       ...p.toJSON(),
-      mahber_id,
-      mahber_name: mahber ? mahber.name : null,
+      mahber_id: mahberId,
       user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
       user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
     }));
 
-    res.json({
-      data,
-      total: count,
-      page: Number(page),
-      perPage: Number(perPage)
-    });
+    res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

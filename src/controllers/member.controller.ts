@@ -16,6 +16,19 @@ async function resolveUserId(user_id?: string, user_email?: string): Promise<str
   return null;
 }
 
+// Helper to check if the authenticated user is an admin of the Mahber
+async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolean> {
+  const adminMember = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId,
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+  return !!adminMember;
+}
+
 export const getAllMahbers = async (_req: AuthenticatedRequest, res: Response) => {
   const mahbers = await memberService.getAllMahbers();
   res.json(mahbers);
@@ -31,13 +44,19 @@ export const requestToJoin = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 export const inviteMember = async (req: AuthenticatedRequest, res: Response) => {
+  const mahberId = req.body.edir_id;
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can invite members.' });
+    return;
+  }
+
   try {
     const userId = await resolveUserId(req.body.user_id, req.body.user_email);
     if (!userId) {
       res.status(400).json({ message: 'User not found' });
       return;
     }
-    const member = await memberService.inviteMember(req.user!.id.toString(), req.body.edir_id, userId);
+    const member = await memberService.inviteMember(req.user!.id.toString(), mahberId, userId);
     res.status(201).json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -68,13 +87,19 @@ export const respondToJoinRequest = async (req: AuthenticatedRequest, res: Respo
 };
 
 export const banMember = async (req: AuthenticatedRequest, res: Response) => {
+  const mahberId = req.body.edir_id;
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can ban members.' });
+    return;
+  }
+
   try {
     const userId = await resolveUserId(req.body.user_id, req.body.user_email);
     if (!userId) {
       res.status(400).json({ message: 'User not found' });
       return;
     }
-    const member = await memberService.banMember(req.user!.id.toString(), req.body.edir_id, userId);
+    const member = await memberService.banMember(req.user!.id.toString(), mahberId, userId);
     res.json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -82,13 +107,19 @@ export const banMember = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const unbanMember = async (req: AuthenticatedRequest, res: Response) => {
+  const mahberId = req.body.edir_id;
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can unban members.' });
+    return;
+  }
+
   try {
     const userId = await resolveUserId(req.body.user_id, req.body.user_email);
     if (!userId) {
       res.status(400).json({ message: 'User not found' });
       return;
     }
-    const member = await memberService.unbanMember(req.user!.id.toString(), req.body.edir_id, userId);
+    const member = await memberService.unbanMember(req.user!.id.toString(), mahberId, userId);
     res.json(member);
   } catch (err: any) {
     res.status(400).json({ message: err.message });
@@ -119,6 +150,11 @@ export const leaveMahber = async (req: AuthenticatedRequest, res: Response) => {
 export const getMahberMembers = async (req: AuthenticatedRequest, res: Response) => {
   const mahberId = req.params.id;
   const { page = 1, perPage = 10 } = req.query;
+  
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view members.' });
+    return;
+  }
   try {
     // Get all members for the mahber, excluding those who left, paginated
     const { rows: members, count } = await Member.findAndCountAll({
@@ -158,9 +194,13 @@ export const getMahberMembers = async (req: AuthenticatedRequest, res: Response)
 
 export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) => {
   const mahberId = req.body.edir_id;
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view left members.' });
+    return;
+  }
+
   const { page = 1, perPage = 10 } = req.query;
   try {
-    // Get all members who left the mahber, paginated
     const { rows: members, count } = await Member.findAndCountAll({
       where: {
         edir_id: mahberId,
@@ -171,7 +211,6 @@ export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) =
       order: [['id', 'DESC']]
     });
 
-    // Get user details for all member_ids
     const userIds = members.map(m => m.member_id);
     const users = await User.findAll({
       where: { id: userIds },
@@ -179,7 +218,6 @@ export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) =
     });
     const userMap = new Map(users.map(u => [String(u.id), u]));
 
-    // Merge user info into member objects
     const membersWithUser = members.map(m => ({
       ...m.toJSON(),
       user: userMap.get(m.member_id) || null
@@ -202,15 +240,21 @@ export const getLeftMembers = async (req: AuthenticatedRequest, res: Response) =
  * Only admins should be able to call this.
  */
 export const changeMemberRole = async (req: AuthenticatedRequest, res: Response) => {
-  const user_id = await resolveUserId(req.body.user_id, req.body.user_email)
-  const { edir_id, new_role } = req.body;
-  if (!edir_id || !user_id || !new_role) {
+  const mahberId = req.body.edir_id;
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), mahberId))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can change member roles.' });
+    return;
+  }
+
+  const user_id = await resolveUserId(req.body.user_id, req.body.user_email);
+  const { new_role } = req.body;
+  if (!mahberId || !user_id || !new_role) {
     res.status(400).json({ message: 'edir_id, user_id, and new_role are required.' });
     return;
   }
+
   try {
-    // Find the Mahber and check creator
-    const mahber = await Mahber.findByPk(edir_id);
+    const mahber = await Mahber.findByPk(mahberId);
     if (!mahber) {
       res.status(404).json({ message: 'Mahber not found.' });
       return;
@@ -219,10 +263,10 @@ export const changeMemberRole = async (req: AuthenticatedRequest, res: Response)
       res.status(403).json({ message: 'Cannot change role of the creator.' });
       return;
     }
-    // Find the member
+
     const member = await Member.findOne({
       where: {
-        edir_id: String(edir_id),
+        edir_id: String(mahberId),
         member_id: String(user_id)
       }
     });

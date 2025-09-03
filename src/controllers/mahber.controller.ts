@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { getUserById } from '../services/user.service';
 import { Op } from 'sequelize';
 import stripeClient from '../config/stripe.config';
+import logger from '../utils/logger';
 dotenv.config();
 
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
@@ -25,6 +26,7 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       state: req.body.state || '',
       city: req.body.city || '',
       address: req.body.address || '',
+      bylaws: req.body.bylaws || '',
       zip_code: req.body.zip_code || '',
       contribution_unit: req.body.contribution_unit || '',
       contribution_frequency: req.body.contribution_frequency || '',
@@ -95,12 +97,68 @@ export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response
 
 export const getMahbers = async (req: Request, res: Response) => {
   const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
 
-  // Only get mahbers with visibility 'public'
-  const result = await getAllMahbers(search, page, perPage);
-  res.json(result);
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  const where: any = {
+    visibility: { [Op.ne]: 'private' }
+  };
+
+  if (search) {
+    logger.info(`Searching mahbers with query: ${search}`);
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  logger.info(`Where clause before specific search before specificSearch: ${req.query.specificSearch} ${JSON.stringify(specificSearch)} and  ${JSON.stringify(where)}`);
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    logger.info(`Applying specific search filters: ${JSON.stringify(specificSearch)}`);
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      logger.info(`Processing specific search column: ${column} with value: ${value}`);
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      }
+       else if (!validColumns.includes(column)) {
+        res.status(400).json({ message: `Invalid column name: ${column}` });
+        return;
+      }
+    }
+  }
+  logger.info(`Where clause: ${JSON.stringify(where)}`);
+  logger.info(`Where clause: ${JSON.stringify(serializeWhereClause(where))}`);
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+
+  res.json({
+    data: rows,
+    total: count,
+    page,
+    perPage
+  });
 };
 
 export const getMahiber = async (req: Request, res: Response) => {
@@ -142,11 +200,28 @@ export const editMahiber = async (req: AuthenticatedRequest, res: Response) => {
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
+
   const mahiber = await getMahberById(Number(req.params.id));
-  if (!mahiber || mahiber.created_by !== req.user.id) {
-    res.status(404).json({ message: 'Mahiber not found or not authorized' });
+  if (!mahiber) {
+    res.status(404).json({ message: 'Mahiber not found' });
     return;
   }
+
+  // Check if the authenticated user is an admin of the Mahber
+  const isAdmin = await Member.findOne({
+    where: {
+      edir_id: String(mahiber.id),
+      member_id: String(req.user.id),
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+
+  if (!isAdmin) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can update this Mahber.' });
+    return;
+  }
+
   try {
     const updated = await updateMahber(Number(req.params.id), {
       ...req.body,
@@ -239,17 +314,62 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
+
   const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
 
-  // Get all mahbers (public only)
-  const result = await getAllMahbers(search, page, perPage);
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  const where: any = {
+    visibility: { [Op.ne]: 'private' }
+  };
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      logger.info(`Processing specific search column: ${column} with value: ${value}`);
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      }
+      // else if (!validColumns.includes(column)) {
+      //   res.status(400).json({ message: `Invalid column name: ${column}` });
+      //   return;
+      // }
+    }
+  }
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
 
   // Get member records for this user
   const userId = String(req.user.id);
-  // Ensure edir_id is string for comparison
-  const mahberIds = result.data.map((m: any) => String(m.id));
+  const mahberIds = rows.map((m: any) => String(m.id));
   const memberRecords = await Member.findAll({
     where: {
       member_id: userId,
@@ -261,16 +381,18 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
     memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
   });
 
-  // Attach memberStatus and memberRole to each mahber
-  const dataWithStatus = result.data.map((m: any) => ({
-    ...m,
+  // Attach memberStatus and memberRole to each Mahber
+  const dataWithStatus = rows.map((m: any) => ({
+    ...m.toJSON(),
     memberStatus: memberMap[String(m.id)]?.status || 'none', // accepted, invited, requested, rejected, left, none
     memberRole: memberMap[String(m.id)]?.role || null        // admin, member, etc. (only if accepted)
   }));
 
   res.json({
-    ...result,
-    data: dataWithStatus
+    data: dataWithStatus,
+    total: count,
+    page,
+    perPage
   });
 };
 
@@ -325,3 +447,19 @@ export const getFeaturedPromotedMahbersControllerAuthenticated = async (req: Aut
     data: dataWithStatus
   });
 };
+function serializeWhereClause(where: any): any {
+  // Recursively serialize Sequelize where clause for logging/debugging
+  if (typeof where !== 'object' || where === null) return where;
+  if (Array.isArray(where)) return where.map(serializeWhereClause);
+
+  const result: any = {};
+  for (const key of Object.keys(where)) {
+    const value = where[key];
+    if (typeof value === 'object' && value !== null) {
+      result[key] = serializeWhereClause(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}

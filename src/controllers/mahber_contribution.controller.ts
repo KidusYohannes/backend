@@ -7,6 +7,7 @@ import { Mahber } from '../models/mahber.model';
 import { User } from '../models/user.model';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 import logger from '../utils/logger';
+import { Member } from '../models/member.model';
 
 function getPeriodName(startDate: Date, unit: string): string {
   const options: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
@@ -42,6 +43,19 @@ async function getContributionTermUnit(mahber_id: number) {
   });
   if (!term) return 'month'; // Default to month if no active term found
   return term.unit; // Return the unit of the active contribution term
+}
+
+// Helper to check if the authenticated user is an admin of the Mahber
+async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolean> {
+  const adminMember = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId,
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+  return !!adminMember;
 }
 
 /**
@@ -170,6 +184,12 @@ export const getUnpaidContributionsForUser = async (req: AuthenticatedRequest, r
  */
 export const getMahberContributionHistory = async (req: AuthenticatedRequest, res: Response) => {
   const mahber_id = Number(req.params.mahber_id);
+
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahber_id)))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view contribution history.' });
+    return;
+  }
+
   const { page = 1, perPage = 10 } = req.query;
   try {
     const { rows, count } = await MahberContribution.findAndCountAll({
@@ -185,7 +205,6 @@ export const getMahberContributionHistory = async (req: AuthenticatedRequest, re
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
     const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
 
-    // mahber id to contribution term unit
     const contributionTermUnits = await getContributionTermUnit(mahber_id);
 
     const data = rows.map(c => ({
@@ -209,6 +228,12 @@ export const getMahberContributionHistory = async (req: AuthenticatedRequest, re
 
 export const getMahberCurrentMonthContributions = async (req: AuthenticatedRequest, res: Response) => {
   const mahber_id = Number(req.params.mahber_id);
+
+  if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahber_id)))) {
+    res.status(403).json({ message: 'Forbidden: Only Mahber admins can view current month contributions.' });
+    return;
+  }
+
   const { page = 1, perPage = 10 } = req.query;
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
