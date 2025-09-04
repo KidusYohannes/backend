@@ -410,7 +410,7 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
  * Only accessible by Mahber admin/creator (check in route/controller).
  */
 export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Response) => {
-  const mahberId = Number(req.query.mahber_id);
+  const mahberId = Number(req.params.mahber_id);
   logger.info(`Request Params: ${JSON.stringify(req.query)}`);
   if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahberId)))) {
     res.status(403).json({ message: 'Forbidden: Only Mahber admins can view payment reports.' });
@@ -472,7 +472,13 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
     // const contributionIds = contributions.map(c => c.id);
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { mahber_id: String(mahberId) },
+      where: { 
+        mahber_id: String(mahberId),
+        created_at: {
+          [Op.gte]: firstDay,
+          [Op.lte]: lastDay
+        }
+      },
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
