@@ -11,6 +11,7 @@ export async function recordPayment({
   method,
   contributionId,
   memberId,
+  mahberId,
   amount,
   status
 }: {
@@ -19,6 +20,7 @@ export async function recordPayment({
   method: 'subscription' | 'one-time';
   contributionId: number;
   memberId: number;
+  mahberId: string;
   amount: number;
   status: string;
 }) {
@@ -28,6 +30,7 @@ export async function recordPayment({
     method,
     contribution_id: contributionId.toString(),
     member_id: memberId,
+    mahber_id: String(mahberId),
     amount,
     status
   });
@@ -43,6 +46,7 @@ export async function recordOneTimePayment({
   receiptUrl,
   contributionId,
   memberId,
+  mahberId,
   amount,
   status
 }: {
@@ -50,6 +54,7 @@ export async function recordOneTimePayment({
   receiptUrl?: string;
   contributionId: number;
   memberId: number;
+  mahberId: string;
   amount: number;
   status: string;
 }) {
@@ -59,6 +64,7 @@ export async function recordOneTimePayment({
     method: 'one-time',
     contribution_id: contributionId.toString(),
     member_id: memberId,
+    mahber_id: mahberId.toString(),
     amount,
     status
   });

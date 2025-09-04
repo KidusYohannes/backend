@@ -162,6 +162,22 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
   return null;
 }
 
+// helper function to check if the user already have a stripe subscription id in the members model
+async function userHasActiveSubscription(userId: number, mahberId: number): Promise<boolean> {
+  const member = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId
+    }
+  });
+
+  //subscription must be either empty or null
+  if (member?.stripe_subscription_id) {
+    return false;
+  }
+  return true;
+}
+
 export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Response) => {
   try {
     logger.info(`Received createCheckoutPayment request: ${JSON.stringify(req.body)}`);
@@ -216,6 +232,12 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       if (!price_id) {
         return res.status(400).json({ message: 'Missing price_id for subscription' });
       }
+
+      if(await userHasActiveSubscription(req.user.id, mahber.id)){
+        res.status(400).json({ message: 'User already has an active subscription for this Mahber.' });
+        return;
+      }
+
       session = await createStripeSession(paymentType, stripeCustomerId, mahber, req, contributionIds, {
         ...sessionData,
         line_items: [{ price: price_id, quantity: 1 }],
