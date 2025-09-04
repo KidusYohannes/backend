@@ -422,7 +422,7 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
     // const payments = await Payment.findAll({ where: { mahber_id: mahberId } });
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { mahber_id: mahberId } ,
+      where: { mahber_id: String(mahberId) } ,
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
@@ -472,7 +472,7 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
     // const contributionIds = contributions.map(c => c.id);
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { mahber_id: mahberId },
+      where: { mahber_id: String(mahberId) },
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
