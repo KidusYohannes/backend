@@ -257,6 +257,7 @@ cron.schedule('* * * * *', async () => {
                 method: 'subscription',
                 contribution_id: String(contribution.id),
                 member_id: Number(member.member_id),
+                mahber_id: String(member.edir_id),
                 amount: Number(invoice.amount_paid) / 100,
                 status: 'paid'
               });

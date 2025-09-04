@@ -103,7 +103,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
 }
 
 // Helper to handle pending payments and contributions
-async function handlePendingPaymentsAndContributions(contributionIds: number[], session: any, req: AuthenticatedRequest, paymentType: string, amount: number) {
+async function handlePendingPaymentsAndContributions(contributionIds: number[], mahber_id: string, session: any, req: AuthenticatedRequest, paymentType: string, amount: number) {
   if (contributionIds.length > 0) {
     await MahberContribution.update(
       { status: 'processing' },
@@ -117,6 +117,7 @@ async function handlePendingPaymentsAndContributions(contributionIds: number[], 
       method: paymentType === 'subscription' ? 'subscription' : 'one-time',
       contribution_id: contributionIdString,
       member_id: Number(req.user?.id) ?? '',
+      mahber_id: mahber_id,
       amount,
       session_id: String(session.id),
       status: 'processing'
@@ -283,12 +284,14 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       }
       // If no contribution IDs are provided, create a payment record without linking to contributions
       if (contributionIds.length === 0) {
+        const contribution_id = paymentType === 'subscription' ? '' : 'donation';
         await Payment.create({
           stripe_payment_id: generatedSessionId,
           receipt_url: String(session.url) ?? '',
           method: paymentType === 'subscription' ? 'subscription' : 'one-time',
-          contribution_id: '', // No contribution ID
+          contribution_id: contribution_id,
           member_id: Number(req.user?.id) ?? '',
+          mahber_id: String(mahber.id),
           amount: contribution_amount,
           session_id: String(session.id),
           status: 'processing'
@@ -296,7 +299,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       }
 
     if (contributionIds.length > 0) {
-      await handlePendingPaymentsAndContributions(contributionIds, session, req, paymentType, amount || 0);
+      await handlePendingPaymentsAndContributions(contributionIds, String(mahber.id), session, req, paymentType, amount || 0);
     }
 
     logger.info('Stripe Checkout session created successfully');

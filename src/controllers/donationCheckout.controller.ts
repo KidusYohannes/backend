@@ -113,6 +113,7 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       method: 'one-time',
       contribution_id: 'donation', // No contribution ID for donations
       member_id:  Number(req.user?.id) ?? '',
+      mahber_id: String(mahberId),
       amount: amount,
       session_id: String(session.id),
       status: 'processing'

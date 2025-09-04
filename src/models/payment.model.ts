@@ -8,6 +8,7 @@ interface PaymentAttributes {
   method: 'subscription' | 'one-time';
   contribution_id: string;
   member_id: number;
+  mahber_id: string;
   amount: number;
   status: string;
   created_at?: string;
@@ -23,6 +24,7 @@ export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes>
   public method!: 'subscription' | 'one-time';
   public contribution_id!: string;
   public member_id!: number;
+  public mahber_id!: string;
   public amount!: number;
   public status!: string;
   public created_at?: string;
@@ -37,6 +39,7 @@ Payment.init(
     method: { type: DataTypes.STRING, allowNull: false },
     contribution_id: { type: DataTypes.STRING, allowNull: false },
     member_id: { type: DataTypes.INTEGER, allowNull: false },
+    mahber_id: { type: DataTypes.STRING, allowNull: false },
     amount: { type: DataTypes.DECIMAL, allowNull: false },
     status: { type: DataTypes.STRING, allowNull: false },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },

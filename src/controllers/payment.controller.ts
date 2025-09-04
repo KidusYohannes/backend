@@ -11,6 +11,7 @@ import { User } from '../models/user.model';
 import { Op } from 'sequelize';
 import stripeClient from '../config/stripe.config';
 import Stripe from 'stripe';
+import logger from '../utils/logger';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolea
       status: 'accepted'
     }
   });
+  logger.info(`isAdminOfMahber: userId=${userId}, mahberId=${mahberId}, isAdmin=${!!adminMember} ${JSON.stringify(adminMember)}`);
   return !!adminMember;
 }
 
@@ -182,6 +184,7 @@ export const createOneTimePayment = async (req: AuthenticatedRequest, res: Respo
         method: 'one-time',
         contribution_id: String(contribution.id),
         member_id: req.user.id,
+        mahber_id: String(mahber.id),
         amount: req.body.amount,
         status: 'pending'
       });
@@ -276,6 +279,7 @@ export const createSubscriptionPayment = async (req: AuthenticatedRequest, res: 
         receipt_url: '', // You can update this after payment confirmation
         method: 'subscription',
         contribution_id: String(contribution.id),
+        mahber_id: String(mahber.id),
         member_id: req.user.id,
         amount: 0, // You can update this after payment confirmation
         status: 'pending'
@@ -406,7 +410,8 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
  * Only accessible by Mahber admin/creator (check in route/controller).
  */
 export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Response) => {
-  const mahberId = Number(req.params.mahber_id);
+  const mahberId = Number(req.query.mahber_id);
+  logger.info(`Request Params: ${JSON.stringify(req.query)}`);
   if (!req.user || !(await isAdminOfMahber(req.user.id.toString(), String(mahberId)))) {
     res.status(403).json({ message: 'Forbidden: Only Mahber admins can view payment reports.' });
     return;
@@ -414,11 +419,10 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
 
   const { page = 1, perPage = 10 } = req.query;
   try {
-    const contributions = await MahberContribution.findAll({ where: { mahber_id: mahberId } });
-    const contributionIds = contributions.map(c => c.id);
+    // const payments = await Payment.findAll({ where: { mahber_id: mahberId } });
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { contribution_id: { [Op.in]: contributionIds } },
+      where: { mahber_id: mahberId } ,
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
@@ -459,16 +463,16 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   try {
-    const contributions = await MahberContribution.findAll({
-      where: {
-        mahber_id: mahberId,
-        period_start_date: { [Op.gte]: firstDay, [Op.lte]: lastDay }
-      }
-    });
-    const contributionIds = contributions.map(c => c.id);
+    // const contributions = await MahberContribution.findAll({
+    //   where: {
+    //     mahber_id: mahberId,
+    //     period_start_date: { [Op.gte]: firstDay, [Op.lte]: lastDay }
+    //   }
+    // });
+    // const contributionIds = contributions.map(c => c.id);
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { contribution_id: { [Op.in]: contributionIds } },
+      where: { mahber_id: mahberId },
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
