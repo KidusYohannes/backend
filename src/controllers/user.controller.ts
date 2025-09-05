@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { sendEmail, sendEmailHtml } from '../services/email.service';
+import { generateEmailVerificationEmail } from './email.controller';
 import {
   getAllUsers,
   getUserById,
   createUser,
   updateUser,
   deleteUser,
+  findActiveUserByEmail,
   validateUserPassword,
   findUserByEmail,
   activateUser
@@ -29,8 +31,14 @@ export const getUser = async (req: Request, res: Response) => {
 };
 
 export const addUser = async (req: Request, res: Response) => {
-  const existingUser = await findUserByEmail(req.body.email);
+  const existingUser = await findActiveUserByEmail(req.body.email);
   if (existingUser) {
+    if (existingUser.status === 'pending') {
+      const emailContent = generateEmailVerificationEmail(existingUser);
+      await sendEmailHtml(existingUser.email, emailContent.subject, emailContent.html);
+      res.status(200).json({ message: 'Activation email resent. Please check your email.' });
+      return;
+    }
     res.status(400).json({ message: 'Email already in use' });
     return;
   }
@@ -55,11 +63,8 @@ export const addUser = async (req: Request, res: Response) => {
         <p style="color: #888;">This code will expire in 30 minutes.</p>
       </div>
     `;
-    await sendEmailHtml(
-      user.email,
-      'Verify your Mahber account',
-      htmlBody
-    );
+    const emailContent = generateEmailVerificationEmail(user);
+    await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
 
     // --- USE THIS FOR NOW: SEND ONLY THE 6-CHAR TOKEN ---
     // await sendEmail(

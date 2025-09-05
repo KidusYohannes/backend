@@ -92,4 +92,19 @@ export function generateForgotPasswordEmail(user: User, linkToken: string) {
       <p>Thank you,<br/>Mahber Team</p>
     `
   };
+}export function generateEmailVerificationEmail(user: User) {
+  return {
+    subject: 'Verify your Mahber account',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+        <p>Thank you for registering with Mahber! To complete your registration, please verify your account.</p>
+        <h2>Verify your Mahber account</h2>
+        <p>Use the verification code below:</p>
+        <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-bottom: 16px;">
+          ${user.link_token}
+        </div>
+        <p style="color: #888;">This code will expire in 30 minutes.</p>
+      </div>
+    `
+  };
 }

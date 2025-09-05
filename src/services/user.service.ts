@@ -32,7 +32,7 @@ export const getUserById = async (id: number): Promise<User | undefined> => {
 
 export const createUser = async (user: User): Promise<User> => {
   // Check if email already exists
-  const existingUser = await findUserByEmail(user.email);
+  const existingUser = await findActiveUserByEmail(user.email);
   if (existingUser) {
     throw new Error('Email already in use');
   }
@@ -69,12 +69,18 @@ export const updateUser = async (id: number, updated: Partial<User>): Promise<Us
 export const deleteUser = async (id: number): Promise<boolean> => {
   const user = await UserModel.findByPk(id);
   if (!user) return false;
-  await user.update({ status: 'inactive' });
+  await user.update({ status: 'deleted' });
   return true;
 };
 
 export const findUserByEmail = async (email: string): Promise<User | undefined> => {
   const user = await UserModel.findOne({ where: { email } });
+  return user ? (user.toJSON() as User) : undefined;
+};
+
+export const findActiveUserByEmail = async (email: string): Promise<User | undefined> => {
+  // a user without deleted status
+  const user = await UserModel.findOne({ where: { email, status: { [Op.ne]: 'deleted' } } });
   return user ? (user.toJSON() as User) : undefined;
 };
 

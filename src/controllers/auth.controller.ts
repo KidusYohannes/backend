@@ -8,7 +8,7 @@ import {
   updateUser,
   getUserById
 } from '../services/user.service';
-import { generateForgotPasswordEmail } from './email.controller';
+import { generateForgotPasswordEmail, generateEmailVerificationEmail } from './email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust import if needed
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
@@ -33,7 +33,9 @@ export const login = async (req: Request, res: Response) => {
     return;
   }
   if(user.status === 'pending') {
-    res.status(403).json({ message: 'Account is pending activation' });
+    const emailContent = generateEmailVerificationEmail(user);
+    await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
+    res.status(403).json({ message: 'Account is pending activation, verification email sent. Please check your email for the verification code.' });
     return;
   }
 
@@ -63,6 +65,12 @@ export const activateUserAccount = async (req: Request, res: Response) => {
   const user = await findUserByEmail(email);
   if (!user) {
     res.status(404).json({ message: 'User not found' });
+    return;
+  }
+  if (user.status === 'pending') {
+    const emailContent = generateEmailVerificationEmail(user);
+    await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
+    res.status(200).json({ message: 'Activation email resent. Please check your email.' });
     return;
   }
   if (user.link_token !== token) {
