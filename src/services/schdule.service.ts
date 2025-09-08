@@ -5,8 +5,10 @@ import { Member } from "../models/member.model";
 import { Op, WhereOptions } from "sequelize";
 import { Payment } from "../models/payment.model";
 import { MahberContribution } from "../models/mahber_contribution.model";
+import { MahberContributionTerm } from "../models/mahber_contribution_term.model";
 import stripeClient from '../config/stripe.config';
 import Stripe from "stripe";
+import logger from "../utils/logger";
 
 /**
  * Scheduler to check Stripe accounts for Mahbers
@@ -67,10 +69,6 @@ cron.schedule('* * * * *', async () => {
  * | `0 0 * * 1-5` | Every weekday at midnight |
  * | `0 0 * * 6,0` | Every weekend at midnight |
  * | `0 0 1-7 * * *` | First 7 days of every month |
- * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
- * | `0 0 * * 1-5` | Every weekday at midnight |
- * | `0 0 * * 6,0` | Every weekend at midnight |
- * | `0 0 1-7 * *` | First 7 days of every month |
  * | `0 0 1-7 * 1-5` | First 7 days of every month on weekdays |
  * | `0 0 * * 1-5` | Every weekday at midnight |
  * | `0 0 * * 6,0` | Every weekend at midnight |
@@ -372,4 +370,103 @@ cron.schedule('* * * * *', async () => {
   }
 
   console.log('Scheduled Stripe one-time payment sync completed.', Date.now());
+});
+
+/**
+ * Helper function to calculate the next period start date based on the contribution term.
+ */
+function calculateNextPeriodStartDate(currentDate: Date, unit: string, frequency: number): Date {
+  const nextDate = new Date(currentDate);
+  switch (unit) {
+    case "month":
+      nextDate.setMonth(nextDate.getMonth() + frequency);
+      break;
+    case "week":
+      nextDate.setDate(nextDate.getDate() + frequency * 7);
+      break;
+    case "year":
+      nextDate.setFullYear(nextDate.getFullYear() + frequency);
+      break;
+    case "day":
+      nextDate.setDate(nextDate.getDate() + frequency);
+      break;
+    default:
+      throw new Error(`Unsupported contribution unit: ${unit}`);
+  }
+  return nextDate;
+}
+
+/**
+ * Cron job to create contributions for Mahber members based on the contribution term.
+ * Runs every day at midnight.
+ */
+cron.schedule("0 0 * * *", async () => {
+  logger.info("Running scheduled job to create contributions for Mahber members...");
+
+  try {
+    // Fetch all active contribution terms
+    const contributionTerms = await MahberContributionTerm.findAll({
+      where: { status: "active" },
+    });
+
+    for (const term of contributionTerms) {
+      const { mahber_id, unit, frequency, amount, effective_from } = term;
+      const members = await Member.findAll({
+        where: { edir_id: mahber_id, status: "accepted" },
+      });
+
+      for (const member of members) {
+        // Find the latest contribution for the member
+        const latestContribution = await MahberContribution.findOne({
+          where: { mahber_id, member_id: member.member_id },
+          order: [["period_number", "DESC"]],
+        });
+
+        let nextPeriodNumber = 1;
+        let nextPeriodStartDate = new Date(effective_from);
+
+        if (latestContribution) {
+          nextPeriodNumber = (latestContribution.period_number ?? 0) + 1;
+          nextPeriodStartDate = calculateNextPeriodStartDate(
+            new Date(latestContribution.period_start_date ?? effective_from),
+            unit,
+            frequency
+          );
+        }
+
+        // Ensure contributions are created for any missing periods
+        const now = new Date();
+        const contributionsToCreate = [];
+        while (nextPeriodStartDate <= now) {
+          contributionsToCreate.push({
+            mahber_id,
+            member_id: member.member_id,
+            period_number: nextPeriodNumber,
+            period_start_date: nextPeriodStartDate.toISOString(),
+            amount_due: amount,
+            contribution_term_id: term.id,
+            status: "unpaid",
+          });
+
+          nextPeriodNumber++;
+          nextPeriodStartDate = calculateNextPeriodStartDate(
+            nextPeriodStartDate,
+            unit,
+            frequency
+          );
+        }
+
+        if (contributionsToCreate.length > 0) {
+          await MahberContribution.bulkCreate(contributionsToCreate);
+          logger.info(
+            `Created ${contributionsToCreate.length} contributions for member ${member.member_id} in Mahber ${mahber_id}.`
+          );
+        }
+      }
+    }
+
+    logger.info("Scheduled job to create contributions completed successfully.");
+  } catch (error: any) {
+    logger.error(`Error in scheduled job to create contributions: ${error.message}`);
+  }
 });
