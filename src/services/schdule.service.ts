@@ -440,7 +440,7 @@ cron.schedule("0 0 * * *", async () => {
         while (nextPeriodStartDate <= now) {
           contributionsToCreate.push({
             mahber_id,
-            member_id: member.member_id,
+            member_id: Number(member.member_id),
             period_number: nextPeriodNumber,
             period_start_date: nextPeriodStartDate.toISOString(),
             amount_due: amount,
