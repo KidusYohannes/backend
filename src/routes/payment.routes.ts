@@ -11,6 +11,7 @@ import {
 import { createCheckoutPayment } from '../controllers/checkout.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { createDonationPayment } from '../controllers/donationCheckout.controller';
+import { handlePaymentCancel, handlePaymentSuccess } from '../controllers/webhook.controller';
 
 const router = Router();
 
@@ -46,5 +47,10 @@ router.get( '/reports/mahber/:mahber_id', authenticateToken, getMahberPaymentRep
 
 // Mahber current month payment reports (paginated, descending order)
 router.get( '/reports/mahber/:mahber_id/current-month', authenticateToken, getMahberCurrentMonthPayments );
+
+
+// Webhook endpoints to handle payment returns from the website from the checkout session urls
+router.post('/webhook/success', handlePaymentSuccess);
+router.post('/webhook/cancel', handlePaymentCancel);
 
 export default router;

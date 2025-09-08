@@ -190,8 +190,17 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     const paymentType = req.params.payment_type || 'one_time'; // 'one_time' or 'subscription'
     const { mahber, user } = await validateMahberAndUser(mahberId, req.user.id);
     const stripeCustomerId = await ensureStripeCustomer(user);
+    const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
 
-    const { price_id, description, contribution_id, amount, currency = 'usd' } = req.body;
+    const { 
+      price_id, 
+      description, 
+      contribution_id, 
+      amount, 
+      currency = 'usd',
+      success_url = `${baseFrontendUrl}/stripe/success`,
+      cancel_url = `${baseFrontendUrl}/stripe/cancel`
+    } = req.body;
 
     // Validate contribution IDs
     let contributionIds: number[] = [];
@@ -215,9 +224,8 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       }
     }
 
-    const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
-    const success_url = `${baseFrontendUrl}/stripe/success`;
-    const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
+    // const success_url = `${baseFrontendUrl}/stripe/success`;
+    // const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
     console.log('Stripe Checkout URLs:', { success_url, cancel_url });
 
     // Common session data
@@ -331,6 +339,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ message: error.message || 'Failed to create checkout session' });
   }
 };
+
 function uuidv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;

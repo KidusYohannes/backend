@@ -49,7 +49,13 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    const { amount, description, currency = 'usd' } = req.body;
+    const { 
+        amount, 
+        description, 
+        currency = 'usd',
+        success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`,
+        cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`
+    } = req.body;
     if (!amount || typeof amount !== 'number' || amount <= 0) {
       logger.error('Invalid donation amount');
       res.status(400).json({ message: 'Invalid donation amount' });
@@ -68,8 +74,8 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
     }
 
     logger.info(`Creating Stripe Checkout session for donation: ${JSON.stringify({ amount, description, currency })}`);
-    const success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`;
-    const cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`;
+    // const success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`;
+    // const cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`;
 
     const session = await stripeClient.checkout.sessions.create({
       payment_method_types: ['card', 'us_bank_account'],

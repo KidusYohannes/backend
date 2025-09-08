@@ -10,6 +10,20 @@ import stripeClient from '../config/stripe.config';
 import logger from '../utils/logger';
 dotenv.config();
 
+// Helper to check if the authenticated user is an admin of the Mahber
+async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolean> {
+  const adminMember = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId,
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+  logger.info(`isAdminOfMahber: userId=${userId}, mahberId=${mahberId}, isAdmin=${!!adminMember} ${JSON.stringify(adminMember)}`);
+  return !!adminMember;
+}
+
 export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: 'Unauthorized' });
@@ -77,13 +91,82 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
+function castContributionAmount<T extends { contribution_amount?: any }>(mahber: T): T {
+  return {
+    ...mahber,
+    contribution_amount: mahber.contribution_amount !== undefined && mahber.contribution_amount !== null
+      ? Number(mahber.contribution_amount)
+      : 0
+  };
+}
+
 export const getMyMahibers = async (req: AuthenticatedRequest, res: Response) => {
-    if (!req.user) { 
-        res.status(401).json({ message: 'Unauthorized' }); 
-    }else {
-        const mahibers = await getMahbersByUser(req.user.id);
-        res.json(mahibers);
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  const where: any = {
+    created_by: req.user.id // Main filter: Only Mahbers created by the user
+  };
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      } else if (!validColumns.includes(column)) {
+        res.status(400).json({ message: `Invalid column name: ${column}` });
+        return;
+      }
     }
+  }
+
+  const offset = (page - 1) * perPage;
+
+  try {
+    const { rows, count } = await Mahber.findAndCountAll({
+      where,
+      offset,
+      limit: perPage,
+      order: [['id', 'DESC']]
+    });
+
+    const castedRows = rows.map(row => castContributionAmount(row.toJSON()));
+    res.json({
+      data: castedRows,
+      total: count,
+      page,
+      perPage
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response) => {
@@ -92,7 +175,8 @@ export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response
     return;
   }
   const mahbers = await getJoinedMahbers(req.user.id);
-  res.json(mahbers);
+  const castedMahbers = mahbers.map(castContributionAmount);
+  res.json(castedMahbers);
 };
 
 export const getMahbers = async (req: Request, res: Response) => {
@@ -153,8 +237,9 @@ export const getMahbers = async (req: Request, res: Response) => {
     order: [['id', 'DESC']]
   });
 
+  const castedRows = rows.map(row => castContributionAmount(row.toJSON()));
   res.json({
-    data: rows,
+    data: castedRows,
     total: count,
     page,
     perPage
@@ -208,16 +293,16 @@ export const editMahiber = async (req: AuthenticatedRequest, res: Response) => {
   }
 
   // Check if the authenticated user is an admin of the Mahber
-  const isAdmin = await Member.findOne({
-    where: {
-      edir_id: String(mahiber.id),
-      member_id: String(req.user.id),
-      role: 'admin',
-      status: 'accepted'
-    }
-  });
+  // const isAdmin = await Member.findOne({
+  //   where: {
+  //     edir_id: String(mahiber.id),
+  //     member_id: String(req.user.id),
+  //     role: 'admin',
+  //     status: 'accepted'
+  //   }
+  // });
 
-  if (!isAdmin) {
+  if (!(await isAdminOfMahber(req.user.id.toString(), String(mahiber.id)))) {
     res.status(403).json({ message: 'Forbidden: Only Mahber admins can update this Mahber.' });
     return;
   }
@@ -383,9 +468,9 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
 
   // Attach memberStatus and memberRole to each Mahber
   const dataWithStatus = rows.map((m: any) => ({
-    ...m.toJSON(),
-    memberStatus: memberMap[String(m.id)]?.status || 'none', // accepted, invited, requested, rejected, left, none
-    memberRole: memberMap[String(m.id)]?.role || null        // admin, member, etc. (only if accepted)
+    ...castContributionAmount(m.toJSON()),
+    memberStatus: memberMap[String(m.id)]?.status || 'none',
+    memberRole: memberMap[String(m.id)]?.role || null
   }));
 
   res.json({
@@ -404,7 +489,11 @@ export const getFeaturedPromotedMahbersController = async (req: Request, res: Re
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
   const featuredMahbers = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
-  res.json(featuredMahbers);
+  const castedData = featuredMahbers.data.map(castContributionAmount);
+  res.json({
+    ...featuredMahbers,
+    data: castedData
+  });
 };
 
 
@@ -436,15 +525,15 @@ export const getFeaturedPromotedMahbersControllerAuthenticated = async (req: Aut
   });
 
   // Attach memberStatus and memberRole to each mahber
-  const dataWithStatus = result.data.map((m: any) => ({
-    ...m,
-    memberStatus: memberMap[String(m.id)]?.status || 'none', // accepted, invited, requested, rejected, left, none
-    memberRole: memberMap[String(m.id)]?.role || null        // admin, member, etc. (only if accepted)
+  const castedDataWithStatus = result.data.map((m: any) => ({
+    ...castContributionAmount(m),
+    memberStatus: memberMap[String(m.id)]?.status || 'none',
+    memberRole: memberMap[String(m.id)]?.role || null
   }));
 
   res.json({
     ...result,
-    data: dataWithStatus
+    data: castedDataWithStatus
   });
 };
 function serializeWhereClause(where: any): any {

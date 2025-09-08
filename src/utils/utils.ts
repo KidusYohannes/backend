@@ -156,3 +156,32 @@ export async function getCurrentPeriodNumber(mahber_id: number): Promise<number>
 
   return totalPeriods;
 }
+
+function getWeekNumber(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.ceil((days + start.getDay() + 1) / 7);
+}
+
+
+export function getPeriodName(startDate: Date, unit: string): string {
+  const options: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' };
+  switch (unit) {
+    case 'month':
+      return startDate.toLocaleDateString('en-US', options);
+    case 'week': {
+      const weekNumber = getWeekNumber(startDate);
+      return `${startDate.getFullYear()} Week ${weekNumber}`;
+    }
+    case 'year':
+      return `${startDate.getFullYear()}`;
+    case 'day':
+      return startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    case 'quarter': {
+      const quarter = Math.floor(startDate.getMonth() / 3) + 1;
+      return `Q${quarter} ${startDate.getFullYear()}`;
+    }
+    default:
+      return startDate.toLocaleDateString('en-US', options);
+  }
+}

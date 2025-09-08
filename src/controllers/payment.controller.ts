@@ -12,6 +12,8 @@ import { Op } from 'sequelize';
 import stripeClient from '../config/stripe.config';
 import Stripe from 'stripe';
 import logger from '../utils/logger';
+import { getPeriodName } from '../utils/utils'; // Import the period name utility function
+import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 
 dotenv.config();
 
@@ -373,23 +375,34 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
 
     // Fetch Mahber and User info for each payment
     const mahberIds = Array.from(new Set(contributions.map(c => c.mahber_id))).filter((id): id is number => typeof id === 'number');
-    console.log('Mahber IDs:', mahberIds);
     const mahbers = await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } });
     const mahberMap = new Map(mahbers.map(m => [m.id, m.name]));
-    console.log('Mahber Map:', mahberMap);
-    const contributionMap = new Map(contributions.map(c => [c.id, c.mahber_id]));
-    console.log('Contribution Map:', contributionMap);
+    const contributionMap = new Map(contributions.map(c => [c.id, c]));
 
     const user = await User.findByPk(req.user.id);
 
     const data = rows.map(p => {
-      const mahberId = contributionMap.get(Number(p.contribution_id));
+      const contributionIds = p.contribution_id ? p.contribution_id.split(',').map(Number) : [];
+      
+      const contributionPeriods = contributionIds.map(async id => {
+        const contribution = contributionMap.get(id);
+        if (contribution) {
+          const contributionTerm = await MahberContributionTerm.findOne({ where: { id: contribution.contribution_term_id } });
+          const periodStartDate = contribution.period_start_date ? new Date(contribution.period_start_date) : new Date();
+          const periodName = getPeriodName(periodStartDate, String(contributionTerm?.unit));
+          return { contribution_id: id, period_name: periodName };
+        }
+        return { contribution_id: id, period_name: null };
+      });
+
+      const mahberId = contributionMap.get(Number(p.contribution_id))?.mahber_id;
       return {
         ...p.toJSON(),
         mahber_id: typeof mahberId === 'number' ? mahberId : null,
         mahber_name: typeof mahberId === 'number' ? mahberMap.get(mahberId) || null : null,
         user_name: user ? user.full_name : null,
-        user_email: user ? user.email : null
+        user_email: user ? user.email : null,
+        contribution_periods: contributionPeriods
       };
     });
 
@@ -422,11 +435,14 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
     // const payments = await Payment.findAll({ where: { mahber_id: mahberId } });
 
     const { rows, count } = await Payment.findAndCountAll({
-      where: { mahber_id: String(mahberId) } ,
+      where: { mahber_id: String(mahberId) },
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
     });
+
+    const contributionIds = rows.flatMap(p => p.contribution_id ? p.contribution_id.split(',').map(Number) : []);
+    const contributionPeriods = await getContributionPeriods(contributionIds);
 
     const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
@@ -436,7 +452,8 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
       ...p.toJSON(),
       mahber_id: mahberId,
       user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
-      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
+      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null,
+      contribution_periods: contributionPeriods.filter(cp => p.contribution_id?.split(',').map(Number).includes(cp.contribution_id))
     }));
 
     res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
@@ -463,26 +480,18 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   try {
-    // const contributions = await MahberContribution.findAll({
-    //   where: {
-    //     mahber_id: mahberId,
-    //     period_start_date: { [Op.gte]: firstDay, [Op.lte]: lastDay }
-    //   }
-    // });
-    // const contributionIds = contributions.map(c => c.id);
-
     const { rows, count } = await Payment.findAndCountAll({
-      where: { 
+      where: {
         mahber_id: String(mahberId),
-        created_at: {
-          [Op.gte]: firstDay,
-          [Op.lte]: lastDay
-        }
+        created_at: { [Op.gte]: firstDay, [Op.lte]: lastDay }
       },
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
     });
+
+    const contributionIds = rows.flatMap(p => p.contribution_id ? p.contribution_id.split(',').map(Number) : []);
+    const contributionPeriods = await getContributionPeriods(contributionIds);
 
     const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
@@ -492,7 +501,8 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
       ...p.toJSON(),
       mahber_id: mahberId,
       user_name: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.name || null : null,
-      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null
+      user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null,
+      contribution_periods: contributionPeriods.filter(cp => p.contribution_id?.split(',').map(Number).includes(cp.contribution_id))
     }));
 
     res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
@@ -500,3 +510,24 @@ export const getMahberCurrentMonthPayments = async (req: AuthenticatedRequest, r
     res.status(500).json({ message: err.message });
   }
 };
+
+// Helper function to extract contribution periods
+async function getContributionPeriods(contributionIds: number[]): Promise<{ contribution_id: number; period_name: string | null }[]> {
+  const contributions = await MahberContribution.findAll({ where: { id: { [Op.in]: contributionIds } } });
+  const contributionMap = new Map(contributions.map(c => [c.id, c]));
+
+  const periods = await Promise.all(
+    contributionIds.map(async id => {
+      const contribution = contributionMap.get(id);
+      if (contribution) {
+        const contributionTerm = await MahberContributionTerm.findOne({ where: { id: contribution.contribution_term_id } });
+        const periodStartDate = contribution.period_start_date ? new Date(contribution.period_start_date) : new Date();
+        const periodName = getPeriodName(periodStartDate, String(contributionTerm?.unit));
+        return { contribution_id: id, period_name: periodName };
+      }
+      return { contribution_id: id, period_name: null };
+    })
+  );
+
+  return periods;
+}
