@@ -511,5 +511,8 @@ async function getContributionPeriods(contributionIds: number[]): Promise<{ cont
     })
   );
 
-  return periods;
+  // Remove duplicates by using a Map to ensure unique contribution_id
+  const uniquePeriods = Array.from(new Map(periods.map(p => [p.contribution_id, p])).values());
+
+  return uniquePeriods;
 }
