@@ -349,22 +349,23 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
       contributionWhere.mahber_id = String(mahber_id); // Ensure string for comparison
     }
     const contributions = await MahberContribution.findAll({ where: contributionWhere });
-    const contributionIds = contributions.map(c => String(c.id));
+    // const contributionIds = contributions.map(c => String(c.id));
 
     // Find payments for these contributions
     const paymentWhere: any = {};
-    if (contributionIds.length > 0) {
-      paymentWhere.contribution_id = { [Op.in]: contributionIds };
-    } else {
-      // If no contributions, return empty result
-      res.json({
-        data: [],
-        total: 0,
-        page: Number(page),
-        perPage: Number(perPage)
-      });
-      return;
-    }
+    paymentWhere.member_id = req.user.id;
+    // if (contributionIds.length > 0) {
+    //   paymentWhere.contribution_id = { [Op.in]: contributionIds };
+    // } else {
+    //   // If no contributions, return empty result
+    //   res.json({
+    //     data: [],
+    //     total: 0,
+    //     page: Number(page),
+    //     perPage: Number(perPage)
+    //   });
+    //   return;
+    // }
 
     const { rows, count } = await Payment.findAndCountAll({
       where: paymentWhere,
@@ -373,45 +374,26 @@ export const getUserPaymentReports = async (req: AuthenticatedRequest, res: Resp
       order: [['id', 'DESC']]
     });
 
-    // Fetch Mahber and User info for each payment
-    const mahberIds = Array.from(new Set(contributions.map(c => c.mahber_id))).filter((id): id is number => typeof id === 'number');
-    const mahbers = await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } });
-    const mahberMap = new Map(mahbers.map(m => [m.id, m.name]));
-    const contributionMap = new Map(contributions.map(c => [c.id, c]));
-
     const user = await User.findByPk(req.user.id);
 
-    const data = rows.map(p => {
-      const contributionIds = p.contribution_id ? p.contribution_id.split(',').map(Number) : [];
-      
-      const contributionPeriods = contributionIds.map(async id => {
-        const contribution = contributionMap.get(id);
-        if (contribution) {
-          const contributionTerm = await MahberContributionTerm.findOne({ where: { id: contribution.contribution_term_id } });
-          const periodStartDate = contribution.period_start_date ? new Date(contribution.period_start_date) : new Date();
-          const periodName = getPeriodName(periodStartDate, String(contributionTerm?.unit));
-          return { contribution_id: id, period_name: periodName };
+    const contributionIds = rows.flatMap(p => {
+      if(p.contribution_id) {
+        if(p.contribution_id !== 'donation') {
+          return p.contribution_id.split(',').map(Number);
         }
-        return { contribution_id: id, period_name: null };
-      });
-
-      const mahberId = contributionMap.get(Number(p.contribution_id))?.mahber_id;
-      return {
-        ...p.toJSON(),
-        mahber_id: typeof mahberId === 'number' ? mahberId : null,
-        mahber_name: typeof mahberId === 'number' ? mahberMap.get(mahberId) || null : null,
-        user_name: user ? user.full_name : null,
-        user_email: user ? user.email : null,
-        contribution_periods: contributionPeriods
-      };
+      }
+      return [];
     });
+    const contributionPeriods = await getContributionPeriods(contributionIds);
 
-    res.json({
-      data,
-      total: count,
-      page: Number(page),
-      perPage: Number(perPage)
-    });
+    const data = rows.map(p => ({
+      ...p.toJSON(),
+      user_name: user?.full_name || null,
+      user_email: user?.email || null,
+      contribution_periods: contributionPeriods.filter(cp => p.contribution_id?.split(',').map(Number).includes(cp.contribution_id))
+    }));
+
+    res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
