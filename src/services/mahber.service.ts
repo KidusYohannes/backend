@@ -193,7 +193,13 @@ export const getMahbersByUser = async (userId: number): Promise<any[]> => {
   return result;
 };
 
-export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
+export const getJoinedMahbers = async (
+  userId: number,
+  search: string = '',
+  page: number = 1,
+  perPage: number = 10,
+  specificSearch: string = ''
+): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
   const user_id = String(userId);
   // Fetch all mahbers where the user is a member with accepted, invited, or requested status
   const members = await Member.findAll({
@@ -204,13 +210,53 @@ export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
   });
 
   const mahberIds = members.map(m => Number(m.edir_id));
-  if (!mahberIds.length) return [];
+  if (!mahberIds.length) {
+    return {data: [], total: 0, page, perPage};
+  }
 
-  const mahbers = await Mahber.findAll({
-    where: { id: { [Op.in]: mahberIds } }
+  const where: any = { id: { [Op.in]: mahberIds } };
+
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      } else if (!validColumns.includes(column)) {
+        throw new Error(`Invalid column name in specificSearch: ${column}`);
+      }
+    }
+  }
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
   });
 
-  const mahberList = mahbers.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
   const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
 
   // Map status and payment method from member to mahber in the response
@@ -225,14 +271,82 @@ export const getJoinedMahbers = async (userId: number): Promise<any[]> => {
     paymentMethodMap[Number(m.edir_id)] = m.stripe_subscription_id ? 'subscription' : 'one_time';
   });
 
-  return mahberList.map(m => ({
+  const data = mahberList.map(m => ({
     ...m,
     memberStatus: statusMap[m.id] || 'none', // accepted, invited, requested, rejected, left, none
     memberRole: roleMap[m.id] || null,       // admin, member, etc. (only if accepted)
     memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 },
     payment_method: paymentMethodMap[m.id] || 'one_time'
   }));
+  return {
+    data,
+    total: count,
+    page,
+    perPage
+  };
 };
+
+export const getMyMahibersService = async (
+  userId: number,
+  search: string = '',
+  page: number = 1,
+  perPage: number = 10,
+  specificSearch: string = ''
+): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
+  const where: any = { created_by: userId };
+
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      } else if (!validColumns.includes(column)) {
+        throw new Error(`Invalid column name in specificSearch: ${column}`);
+      }
+    }
+  }
+
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
+  const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
+  const data = mahberList.map(m => ({
+    ...m,
+    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 }
+  }));
+  return {
+    data: data,
+    total: count,
+    page,
+    perPage
+  };
+}
 
 export const getMahberById = async (id: number): Promise<Mahber | undefined> => {
   const mahber = await Mahber.findByPk(id);

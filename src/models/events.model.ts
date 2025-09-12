@@ -10,7 +10,9 @@ interface EventsAttributes {
     start_time: Date;
     end_time?: Date;
     rsvp_deadline?: Date;
-    created_by: number; 
+    created_by: number;
+    is_public: boolean;
+    last_updated_by: number;
 }
 
 interface EventsCreationAttributes extends Optional<EventsAttributes, 'id'> {}
@@ -25,6 +27,8 @@ class Events extends Model<EventsAttributes, EventsCreationAttributes> implement
   public end_time?: Date;
   public rsvp_deadline?: Date;
   public created_by!: number;
+  public last_updated_by!: number;
+  public is_public!: boolean;
 }
 
 Events.init(
@@ -37,7 +41,9 @@ Events.init(
     start_time: {type: DataTypes.DATE, allowNull: false},
     end_time: {type: DataTypes.DATE, allowNull: true},
     rsvp_deadline: {type: DataTypes.DATE, allowNull: true},
-    created_by: {type: DataTypes.INTEGER, allowNull: false}
+    created_by: {type: DataTypes.INTEGER, allowNull: false},
+    is_public: {type: DataTypes.BOOLEAN, allowNull: false},
+    last_updated_by: {type: DataTypes.INTEGER, allowNull: true}
   },
   {
     sequelize,

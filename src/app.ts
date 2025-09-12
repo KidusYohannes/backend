@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.routes';
 import paymentRoutes from './routes/payment.routes';
 import contributionRoute from './routes/contribution.route';
 import stripeWebhookRoutes from './webhooks/stripe.webhook.routes';
+import webhookRoutes from './routes/webhook.routes';
+import eventsRoutes from './routes/events.routes'
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -53,6 +55,8 @@ app.use('/members', memberRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/', authRoutes);
 app.use('/contributions', contributionRoute);
+app.use('/webhook', webhookRoutes)
+app.use('/events', eventsRoutes);
 
 // Error handler to log errors and avoid leaking stack traces
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

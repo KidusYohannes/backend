@@ -16,7 +16,7 @@ import logger from "../utils/logger";
  * It checks for Mahbers that have a Stripe account ID but are not active
  * and calls the checkMahberStripeAccount function to verify their status.
  */
-cron.schedule('* * * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log('Running Scheduler to check Stripe accounts for Mahbers...');
   // call your service logic here
 
@@ -95,7 +95,7 @@ cron.schedule('* * * * *', async () => {
  * It checks for Mahbers that are missing Stripe product or price IDs and creates them if necessary
  * It also updates the Mahber model with the new product/price IDs.
  */
-cron.schedule('0 */2 * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log('Running scheduled Stripe product/price check...');
   const WhereOptions: WhereOptions = {
     [Op.or]: [
@@ -169,7 +169,7 @@ cron.schedule('0 */2 * * *', async () => {
  * This is useful for cases where members subscribe to a plan that requires recurring payments.
  * It runs every 2 hours at minute 0.
  */
-cron.schedule('* * * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log('Running scheduled Stripe subscription sync for members...');
   const WhereOptions: WhereOptions = {
     stripe_session_id: { [Op.not]: null },
@@ -204,7 +204,7 @@ cron.schedule('* * * * *', async () => {
  * It checks for members with active subscriptions and retrieves their latest paid invoice and charge
  * to ensure that their subscription status and payment info are up-to-date.
  */
-cron.schedule('* * * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log('Running scheduled Stripe subscription payment sync...');
   const whereClause: WhereOptions = {
     stripe_subscription_id: { [Op.not]: null },
@@ -283,7 +283,7 @@ cron.schedule('* * * * *', async () => {
  * This runs every 5 minutes.
  * It checks for payments with one-time method and retrieves their latest status using the session ID.
  */
-cron.schedule('* * * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log('Running scheduled Stripe one-time payment sync...');
 
   const payments = await Payment.findAll({

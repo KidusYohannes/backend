@@ -1,5 +1,7 @@
 import { add, isBefore, parseISO, differenceInDays, differenceInWeeks, differenceInMonths, differenceInYears } from 'date-fns';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
+import { Member } from '../models/member.model';
+import logger from './logger';
 type TimeUnit = 'day' | 'week' | 'month' | 'year';
 
 interface PeriodConfig {
@@ -184,4 +186,17 @@ export function getPeriodName(startDate: Date, unit: string): string {
     default:
       return startDate.toLocaleDateString('en-US', options);
   }
+}
+
+export async function isAdminOfMahber(userId: string, mahberId: string): Promise<boolean> {
+  const adminMember = await Member.findOne({
+    where: {
+      member_id: userId,
+      edir_id: mahberId,
+      role: 'admin',
+      status: 'accepted'
+    }
+  });
+  logger.info(`isAdminOfMahber: userId=${userId}, mahberId=${mahberId}, isAdmin=${!!adminMember} ${JSON.stringify(adminMember)}`);
+  return !!adminMember;
 }

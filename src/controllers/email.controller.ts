@@ -92,7 +92,9 @@ export function generateForgotPasswordEmail(user: User, linkToken: string) {
       <p>Thank you,<br/>Mahber Team</p>
     `
   };
-}export function generateEmailVerificationEmail(user: User) {
+}
+
+export function generateEmailVerificationEmail(user: User) {
   return {
     subject: 'Verify your Mahber account',
     html: `
@@ -105,6 +107,27 @@ export function generateForgotPasswordEmail(user: User, linkToken: string) {
         </div>
         <p style="color: #888;">This code will expire in 30 minutes.</p>
       </div>
+    `
+  };
+}
+
+
+// email reminder for event rsvp users when there is 24 hr remaining
+export function generateEventRSVPReminderEmail(user: User, event: { title: string; date: string; time: string; location: string }) {
+  return {
+    subject: `Reminder: Upcoming Event - ${event.title}`,
+    html: `
+      <h2>Event Reminder</h2>
+      <p>Dear ${user.full_name},</p>
+      <p>This is a friendly reminder that you have RSVP'd for the following event:</p>
+      <ul>
+        <li><strong>Title:</strong> ${event.title}</li>
+        <li><strong>Date:</strong> ${event.date}</li>
+        <li><strong>Time:</strong> ${event.time}</li>
+        <li><strong>Location:</strong> ${event.location}</li>
+      </ul>
+      <p>We look forward to seeing you there!</p>
+      <p>Mahber Team</p>
     `
   };
 }

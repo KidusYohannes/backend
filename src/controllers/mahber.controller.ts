@@ -1,5 +1,5 @@
 import { Response, Request } from 'express';
-import { createMahberWithContributionTerm, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers } from '../services/mahber.service';
+import { createMahberWithContributionTerm, getMyMahibersService, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers } from '../services/mahber.service';
 import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
@@ -105,65 +105,14 @@ export const getMyMahibers = async (req: AuthenticatedRequest, res: Response) =>
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
-
-  const search = typeof req.query.search === 'string' ? req.query.search : '';
   const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
 
-  // List of valid column names to prevent SQL injection
-  const validColumns = [
-    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
-  ];
-
-  const where: any = {
-    created_by: req.user.id // Main filter: Only Mahbers created by the user
-  };
-
-  if (search) {
-    where[Op.or] = [
-      { name: { [Op.iLike]: `%${search}%` } },
-      { description: { [Op.iLike]: `%${search}%` } },
-      { type: { [Op.iLike]: `%${search}%` } },
-      { affiliation: { [Op.iLike]: `%${search}%` } },
-      { country: { [Op.iLike]: `%${search}%` } },
-      { state: { [Op.iLike]: `%${search}%` } },
-      { city: { [Op.iLike]: `%${search}%` } },
-      { address: { [Op.iLike]: `%${search}%` } },
-      { zip_code: { [Op.iLike]: `%${search}%` } }
-    ];
-  }
-
-  // Add specific search for multiple columns
-  if (specificSearch && typeof specificSearch === 'object') {
-    for (const [key, value] of Object.entries(specificSearch)) {
-      const column = key;
-      if (validColumns.includes(column) && typeof value === 'string') {
-        where[column] = { [Op.iLike]: `%${value}%` };
-      } else if (!validColumns.includes(column)) {
-        res.status(400).json({ message: `Invalid column name: ${column}` });
-        return;
-      }
-    }
-  }
-
-  const offset = (page - 1) * perPage;
-
   try {
-    const { rows, count } = await Mahber.findAndCountAll({
-      where,
-      offset,
-      limit: perPage,
-      order: [['id', 'DESC']]
-    });
-
-    const castedRows = rows.map(row => castContributionAmount(row.toJSON()));
-    res.json({
-      data: castedRows,
-      total: count,
-      page,
-      perPage
-    });
+    const result = await getMyMahibersService(req.user.id, search, page, perPage, specificSearch);
+    res.json({...result});
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -174,9 +123,14 @@ export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response
     res.status(401).json({ message: 'Unauthorized' });
     return;
   }
-  const mahbers = await getJoinedMahbers(req.user.id);
-  const castedMahbers = mahbers.map(castContributionAmount);
-  res.json(castedMahbers);
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+
+  const mahbers = await getJoinedMahbers(req.user.id, search, page, perPage, specificSearch);
+  // const castedMahbers = mahbers.map(castContributionAmount);
+  res.json({...mahbers});
 };
 
 export const getMahbers = async (req: Request, res: Response) => {

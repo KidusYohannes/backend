@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 
 
 export const handlePaymentSuccess = async (req: Request, res: Response) => {
-  const { mahber_id, user_id, session_id } = req.query;
+  const { mahber_id, user_id, session_id } = req.body;
 
   if (!mahber_id || !user_id || !session_id) {
     res.status(400).json({ message: 'mahber_id, user_id, and session_id are required.' });
@@ -48,7 +48,7 @@ export const handlePaymentSuccess = async (req: Request, res: Response) => {
 };
 
 export const handlePaymentCancel = async (req: Request, res: Response) => {
-  const { mahber_id, user_id, session_id } = req.query;
+  const { mahber_id, user_id, session_id } = req.body;
 
   if (!mahber_id || !user_id || !session_id) {
     res.status(400).json({ message: 'mahber_id, user_id, and session_id are required.' });
