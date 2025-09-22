@@ -19,7 +19,7 @@ export const getAllRsvps = async (
 ): Promise<{ data: EventsRsvp[]; total: number; page: number; perPage: number }> => {
   const offset = (page - 1) * perPage;
   const { rows, count } = await EventsRsvp.findAndCountAll({
-    where: { event_id: eventId },
+    where: { event_id: String(eventId) },
     offset,
     limit: perPage,
     order: [['id', 'DESC']]
@@ -44,4 +44,12 @@ export const updateRsvp = async (id: number, updatedData: Partial<EventsRsvp>): 
 export const deleteRsvp = async (id: number): Promise<boolean> => {
   const deleted = await EventsRsvp.destroy({ where: { id } });
   return deleted > 0;
+};
+
+// get rsvp by user and event
+export const getRsvpByUserAndEvent = async (userId: number, eventId: number): Promise<EventsRsvp | undefined> => {
+  const rsvp = await EventsRsvp.findOne({
+    where: { user_id: String(userId), event_id: String(eventId) }
+  });
+  return rsvp ? (rsvp.toJSON() as EventsRsvp) : undefined;
 };

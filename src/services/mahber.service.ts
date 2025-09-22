@@ -653,3 +653,79 @@ export const getFeaturedMahbersAuthenticated = async (
     perPage
   };
 }
+
+
+export const getAuthenticatedMahbers = async (where: any, page: number, perPage: number, user_id: string): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+  const members = await Member.findAll({
+    where: {
+      member_id: user_id,
+      status: { [Op.in]: ['accepted', 'invited', 'requested'] }
+    }
+  });
+
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
+  const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
+
+  // Map status and payment method from member to mahber in the response
+  const statusMap: Record<number, string> = {};
+  const roleMap: Record<number, string> = {};
+  const paymentMethodMap: Record<number, string> = {};
+  members.forEach(m => {
+    statusMap[Number(m.edir_id)] = m.status;
+    if (m.status === 'accepted') {
+      roleMap[Number(m.edir_id)] = m.role;
+    }
+    paymentMethodMap[Number(m.edir_id)] = m.stripe_subscription_id ? 'subscription' : 'one_time';
+  });
+
+  const data = mahberList.map(m => {
+    const memberStatus = statusMap[m.id] || 'none';
+    return {
+      ...m,
+      memberStatus, // accepted, invited, requested, rejected, left, none
+      memberRole: roleMap[m.id] || null,       // admin, member, etc. (only if accepted)
+      memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 },
+      payment_method: memberStatus === 'none' ? 'none' : paymentMethodMap[m.id] || 'one_time'
+    };
+  });
+
+  return {
+    data,
+    total: count,
+    page,
+    perPage
+  };
+}
+
+export const getUnauthenticatedMahbers  = async (where: any, page: number, perPage: number): Promise<{ data: any[]; total: number; page: number; perPage: number }> => {
+  const offset = (page - 1) * perPage;
+
+  const { rows, count } = await Mahber.findAndCountAll({
+    where,
+    offset,
+    limit: perPage,
+    order: [['id', 'DESC']]
+  });
+
+  const mahberList = rows.map(m => castMahberContributionAmount(m.toJSON() as Mahber));
+  const counts = await getMemberStatusCounts(mahberList.map(m => m.id));
+
+  const data = mahberList.map(m => ({
+    ...m,
+    memberCounts: counts[m.id] || { joined: 0, invited: 0, requested: 0, rejected: 0 }
+  }));
+  return {
+    data,
+    total: count,
+    page,
+    perPage
+  };
+}

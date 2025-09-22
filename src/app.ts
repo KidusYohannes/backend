@@ -7,7 +7,9 @@ import paymentRoutes from './routes/payment.routes';
 import contributionRoute from './routes/contribution.route';
 import stripeWebhookRoutes from './webhooks/stripe.webhook.routes';
 import webhookRoutes from './routes/webhook.routes';
-import eventsRoutes from './routes/events.routes'
+import eventsRoutes from './routes/events.routes';
+import smsRoutes from './routes/sms.routes';
+import twilio from './webhooks/twilio';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -56,7 +58,10 @@ app.use('/payments', paymentRoutes);
 app.use('/', authRoutes);
 app.use('/contributions', contributionRoute);
 app.use('/webhook', webhookRoutes)
+app.use('/webhook', webhookRoutes)
+app.use('/webhook', twilio);
 app.use('/events', eventsRoutes);
+app.use('/sms', smsRoutes);
 
 // Error handler to log errors and avoid leaking stack traces
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

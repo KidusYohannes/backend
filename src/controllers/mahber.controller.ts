@@ -1,5 +1,5 @@
 import { Response, Request } from 'express';
-import { createMahberWithContributionTerm, getMyMahibersService, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers } from '../services/mahber.service';
+import { createMahberWithContributionTerm, getMyMahibersService, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers, getAuthenticatedMahbers, getUnauthenticatedMahbers } from '../services/mahber.service';
 import { Member } from '../models/member.model';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
@@ -109,9 +109,41 @@ export const getMyMahibers = async (req: AuthenticatedRequest, res: Response) =>
   const search = typeof req.query.search === 'string' ? req.query.search : '';
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+  const userId = req.user.id;
+  const where: any = { created_by: userId };
 
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      } else if (!validColumns.includes(column)) {
+        throw new Error(`Invalid column name in specificSearch: ${column}`);
+      }
+    }
+  }
   try {
-    const result = await getMyMahibersService(req.user.id, search, page, perPage, specificSearch);
+    const result = await getAuthenticatedMahbers(where, page, perPage, String(userId));
     res.json({...result});
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -128,9 +160,56 @@ export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
 
-  const mahbers = await getJoinedMahbers(req.user.id, search, page, perPage, specificSearch);
+  const user_id = String(req.user.id);
+  // Fetch all mahbers where the user is a member with accepted, invited, or requested status
+  const members = await Member.findAll({
+    where: {
+      member_id: user_id,
+      status: { [Op.in]: ['accepted', 'invited', 'requested'] }
+    }
+  });
+
+  const mahberIds = members.map(m => Number(m.edir_id));
+  if (!mahberIds.length) {
+     res.json({data: [], total: 0, page, perPage});
+     return;
+  }
+  const where: any = { id: { [Op.in]: mahberIds } };
+
+  // List of valid column names to prevent SQL injection
+  const validColumns = [
+    'name', 'description', 'type', 'affiliation', 'country', 'state', 'city', 'address', 'zip_code', 'visibility'
+  ];
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  // Add specific search for multiple columns
+  if (specificSearch && typeof specificSearch === 'object') {
+    for (const [key, value] of Object.entries(specificSearch)) {
+      const column = key;
+      if (validColumns.includes(column) && typeof value === 'string') {
+        where[column] = { [Op.iLike]: `%${value}%` };
+      } else if (!validColumns.includes(column)) {
+        throw new Error(`Invalid column name in specificSearch: ${column}`);
+      }
+    }
+  }
+
+  const result = await getAuthenticatedMahbers(where, page, perPage, user_id);
   // const castedMahbers = mahbers.map(castContributionAmount);
-  res.json({...mahbers});
+  res.json({...result});
 };
 
 export const getMahbers = async (req: Request, res: Response) => {
@@ -179,25 +258,9 @@ export const getMahbers = async (req: Request, res: Response) => {
       }
     }
   }
-  logger.info(`Where clause: ${JSON.stringify(where)}`);
-  logger.info(`Where clause: ${JSON.stringify(serializeWhereClause(where))}`);
 
-  const offset = (page - 1) * perPage;
-
-  const { rows, count } = await Mahber.findAndCountAll({
-    where,
-    offset,
-    limit: perPage,
-    order: [['id', 'DESC']]
-  });
-
-  const castedRows = rows.map(row => castContributionAmount(row.toJSON()));
-  res.json({
-    data: castedRows,
-    total: count,
-    page,
-    perPage
-  });
+  const result = await getUnauthenticatedMahbers(where, page, perPage);
+  res.json({...result});
 };
 
 export const getMahiber = async (req: Request, res: Response) => {
@@ -442,12 +505,45 @@ export const getFeaturedPromotedMahbersController = async (req: Request, res: Re
   const search = typeof req.query.search === 'string' ? req.query.search : '';
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
-  const featuredMahbers = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
-  const castedData = featuredMahbers.data.map(castContributionAmount);
-  res.json({
-    ...featuredMahbers,
-    data: castedData
-  });
+
+  let where: any;
+  if(featuredPromoted === 'featured'){
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      featured: "true"
+    };
+  }else if(featuredPromoted === 'promoted'){
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      promoted: "true"
+    };
+  }else{
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      featured: "true",
+      promoted: "true"
+    };
+  }
+
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
+
+  const result = await getUnauthenticatedMahbers(where, page, perPage);
+
+  // const featuredMahbers = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
+  // const castedData = featuredMahbers.data.map(castContributionAmount);
+  res.json({...result});
 };
 
 
@@ -461,35 +557,46 @@ export const getFeaturedPromotedMahbersControllerAuthenticated = async (req: Aut
   const search = typeof req.query.search === 'string' ? req.query.search : '';
   const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
   const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
-  const result = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
+  // const result = await getFeaturedMahbers(search, page, perPage, featuredPromoted);
+  let where: any;
+  if(featuredPromoted === 'featured'){
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      featured: "true"
+    };
+  }else if(featuredPromoted === 'promoted'){
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      promoted: "true"
+    };
+  }else{
+    where = {
+      visibility: { [Op.ne]: 'private' },
+      featured: "true",
+      promoted: "true"
+    };
+  }
 
-  // Get member records for this user
-  const userId = String(req.user.id);
-  // Ensure edir_id is string for comparison
-  const mahberIds = result.data.map((m: any) => String(m.id));
-  const memberRecords = await Member.findAll({
-    where: {
-      member_id: userId,
-      edir_id: { [Op.in]: mahberIds }
-    }
-  });
-  const memberMap: Record<string, { status: string, role?: string }> = {};
-  memberRecords.forEach(m => {
-    memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
-  });
+  if (search) {
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+      { type: { [Op.iLike]: `%${search}%` } },
+      { affiliation: { [Op.iLike]: `%${search}%` } },
+      { country: { [Op.iLike]: `%${search}%` } },
+      { state: { [Op.iLike]: `%${search}%` } },
+      { city: { [Op.iLike]: `%${search}%` } },
+      { address: { [Op.iLike]: `%${search}%` } },
+      { zip_code: { [Op.iLike]: `%${search}%` } }
+    ];
+  }
 
-  // Attach memberStatus and memberRole to each mahber
-  const castedDataWithStatus = result.data.map((m: any) => ({
-    ...castContributionAmount(m),
-    memberStatus: memberMap[String(m.id)]?.status || 'none',
-    memberRole: memberMap[String(m.id)]?.role || null
-  }));
-
+  const result = await getAuthenticatedMahbers(where, page, perPage, String(req.user.id));
   res.json({
-    ...result,
-    data: castedDataWithStatus
+    ...result
   });
 };
+
 function serializeWhereClause(where: any): any {
   // Recursively serialize Sequelize where clause for logging/debugging
   if (typeof where !== 'object' || where === null) return where;

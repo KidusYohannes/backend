@@ -200,3 +200,44 @@ export async function isAdminOfMahber(userId: string, mahberId: string): Promise
   logger.info(`isAdminOfMahber: userId=${userId}, mahberId=${mahberId}, isAdmin=${!!adminMember} ${JSON.stringify(adminMember)}`);
   return !!adminMember;
 }
+
+// src/services/sms/utils.ts
+export function toE164(raw: string): string {
+  // Very light normalization; consider a library if you need full parsing by region.
+  let v = raw.trim();
+  if (v.startsWith("00")) v = `+${v.slice(2)}`;
+  if (!v.startsWith("+")) {
+    // If your app is Ethiopia-first, you *could* default to +251
+    // but it's safer to require frontend to submit E.164.
+    throw new Error(`Phone must be E.164: ${raw}`);
+  }
+  // rudimentary check
+  if (v.length < 8 || v.length > 20) {
+    throw new Error(`Suspicious phone length: ${v}`);
+  }
+  return v;
+}
+
+export type SmsEligibility = {
+  ok: boolean;
+  reason?: string;
+};
+
+// Stub these with your real DB lookups:
+export async function hasPaidAtLeastOnce(userId: string): Promise<boolean> {
+  // e.g. SELECT EXISTS(SELECT 1 FROM payments WHERE user_id=$1 AND status='paid');
+  return true;
+}
+
+export async function monthlySmsCount(userId: string): Promise<number> {
+  // e.g. SELECT COUNT(*) FROM sms_logs WHERE user_id=$1 AND created_at >= date_trunc('month', now());
+  return 0;
+}
+
+export async function canSendSms(userId: string): Promise<SmsEligibility> {
+  const paid = await hasPaidAtLeastOnce(userId);
+  if (!paid) return { ok: false, reason: "Member has not paid before" };
+  const count = await monthlySmsCount(userId);
+  if (count >= 3) return { ok: false, reason: "Monthly SMS limit reached" };
+  return { ok: true };
+}

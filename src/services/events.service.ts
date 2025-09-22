@@ -93,14 +93,14 @@ export const deleteEvent = async (id: number): Promise<boolean> => {
 // Get all events for authenticated user with rsvp status should not be filter but when available attach user rsvp
 export const getAllEventsForUser = async (
   userId: number,
-  page: number = 1,
-  perPage: number = 10,
-  search: string = ''
+  page = 1,
+  perPage = 10,
+  search = ''
 ): Promise<{ data: any; total: number; page: number; perPage: number }> => {
+  if (!Number.isFinite(userId)) throw new Error('Invalid user id');
+
   const where: any = {};
-  if (search) {
-    where.name = { [Op.iLike]: `%${search}%` };
-  }
+  if (search) where.name = { [Op.iLike]: `%${search}%` };
 
   const offset = (page - 1) * perPage;
 
@@ -108,47 +108,50 @@ export const getAllEventsForUser = async (
     where,
     offset,
     limit: perPage,
-    order: [
-      [sequelize.literal(`(
-        SELECT CASE
-          WHEN status = 'yes' THEN 1
-          WHEN status = 'maybe' THEN 2
-          WHEN status = 'no' THEN 3
-          ELSE 4
-        END
-        FROM events_rsvps
-        WHERE events_rsvps.event_id = events.id AND events_rsvps.user_id = '${sequelize.escape(userId)}'
-      )`), 'ASC'],
-      ['start_time', 'ASC']
-    ],
-    include: [
-      {
-        model: EventsRsvp,
-        as: 'rsvps',
-        where: { user_id: userId },
-        required: false,
-        attributes: ['status']
-      }
-    ]
+    order: [['start_time', 'ASC']], // simple ordering, no CASE needed
   });
 
-  const mahberIds = Array.from(new Set(rows.map(event => event.mahber_id)));
-  const mahbers = await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } });
-  const mahberMap = new Map(mahbers.map(mahber => [mahber.id, mahber.name]));
 
-  const data = rows.map(event => {
-    const eventObj = event.toJSON() as Events & { rsvps?: { status: string }[] };
+  // get event rsvps for this user and the events, rows
+  const eventIds = rows.map(e => String(e.id));
+  const rsvps = eventIds.length
+    ? await EventsRsvp.findAll({
+        where: {
+          event_id: { [Op.in]: eventIds },
+          user_id: String(userId),
+        },
+        attributes: ['event_id', 'status'],
+      })
+    : [];
+  // logger.info(`Fetched ${rsvps.length} RSVPs for user ${userId} and events ${eventIds.join(', ')} and rsvps are ${JSON.stringify(rsvps)}`);
+  const rsvpMap = new Map(rsvps.map(r => [Number(r.event_id), r.status]));
+  // logger.info(`RSVP Map: ${JSON.stringify(Array.from(rsvpMap.entries()))}`);
+  // Batch load mahber names
+  const mahberIds = Array.from(new Set(rows.map(e => Number(e.mahber_id)).filter(Boolean)));
+  // logger.info(`Mahber IDs to fetch: ${JSON.stringify(mahberIds)}`);
+  const mahbers = mahberIds.length
+    ? await Mahber.findAll({ where: { id: { [Op.in]: mahberIds } } })
+    : [];
+  // logger.info(`Fetched mahbers: ${JSON.stringify(mahbers)}`);
+  const mahberMap = new Map(mahbers.map(m => {
+    console.log('Mahber:', m.id, m.name);
+    return [m.id, m.name];
+  }));
+
+  // logger.info(`Mahber map: ${JSON.stringify(mahberMap)}`);
+  const data = rows.map(ev => {
+    // get rsvp status if any
+    const rsvp = rsvpMap.get(ev.id);
+    const rsvp_status = rsvp ? rsvp : 'none';
+    const json = ev.toJSON() as Events;
+    // if you don’t want to expose the rsvps array, strip it:
+    const { rsvps, ...rest } = json as any;
     return {
-      ...eventObj,
-      rsvp_status: eventObj.rsvps?.[0]?.status || 'none',
-      mahber_name: mahberMap.get(eventObj.mahber_id) || null
+      ...rest,
+      rsvp_status,
+      mahber_name: mahberMap.get(Number(rest.mahber_id)) ?? null,
     };
   });
 
-  return {
-    data,
-    total: count,
-    page,
-    perPage
-  };
+  return { data, total: count, page, perPage };
 };
