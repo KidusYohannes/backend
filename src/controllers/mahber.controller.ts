@@ -460,43 +460,47 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
     }
   }
 
-  const offset = (page - 1) * perPage;
-
-  const { rows, count } = await Mahber.findAndCountAll({
-    where,
-    offset,
-    limit: perPage,
-    order: [['id', 'DESC']]
-  });
-
-  // Get member records for this user
-  const userId = String(req.user.id);
-  const mahberIds = rows.map((m: any) => String(m.id));
-  const memberRecords = await Member.findAll({
-    where: {
-      member_id: userId,
-      edir_id: { [Op.in]: mahberIds }
-    }
-  });
-  const memberMap: Record<string, { status: string, role?: string }> = {};
-  memberRecords.forEach(m => {
-    memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
-  });
-
-  // Attach memberStatus and memberRole to each Mahber
-  const dataWithStatus = rows.map((m: any) => ({
-    ...castContributionAmount(m.toJSON()),
-    memberStatus: memberMap[String(m.id)]?.status || 'none',
-    memberRole: memberMap[String(m.id)]?.role || null
-  }));
-
-  res.json({
-    data: dataWithStatus,
-    total: count,
-    page,
-    perPage
-  });
+  const result = await getAuthenticatedMahbers(where, page, perPage, String(req.user.id));
+  res.json({...result});
 };
+
+//   const offset = (page - 1) * perPage;
+
+//   const { rows, count } = await Mahber.findAndCountAll({
+//     where,
+//     offset,
+//     limit: perPage,
+//     order: [['id', 'DESC']]
+//   });
+
+//   // Get member records for this user
+//   const userId = String(req.user.id);
+//   const mahberIds = rows.map((m: any) => String(m.id));
+//   const memberRecords = await Member.findAll({
+//     where: {
+//       member_id: userId,
+//       edir_id: { [Op.in]: mahberIds }
+//     }
+//   });
+//   const memberMap: Record<string, { status: string, role?: string }> = {};
+//   memberRecords.forEach(m => {
+//     memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
+//   });
+
+//   // Attach memberStatus and memberRole to each Mahber
+//   const dataWithStatus = rows.map((m: any) => ({
+//     ...castContributionAmount(m.toJSON()),
+//     memberStatus: memberMap[String(m.id)]?.status || 'none',
+//     memberRole: memberMap[String(m.id)]?.role || null
+//   }));
+
+//   res.json({
+//     data: dataWithStatus,
+//     total: count,
+//     page,
+//     perPage
+//   });
+// };
 
 
 export const getFeaturedPromotedMahbersController = async (req: Request, res: Response) => {
