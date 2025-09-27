@@ -2,6 +2,9 @@ import { add, isBefore, parseISO, differenceInDays, differenceInWeeks, differenc
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
 import { Member } from '../models/member.model';
 import logger from './logger';
+import { Mahber } from '../models/mahber.model';
+import Stripe from 'stripe';
+import stripeClient from '../config/stripe.config';
 type TimeUnit = 'day' | 'week' | 'month' | 'year';
 
 interface PeriodConfig {
@@ -240,4 +243,105 @@ export async function canSendSms(userId: string): Promise<SmsEligibility> {
   const count = await monthlySmsCount(userId);
   if (count >= 3) return { ok: false, reason: "Monthly SMS limit reached" };
   return { ok: true };
+}
+
+//calculate amount with preccessing fee for card
+export function calculateAmountWithProcessingFeeCard(amount: number): number {
+  if (!amount || amount <= 0) return 0;
+  // Convert cents to dollars
+  const baseAmount = amount / 100;
+  // Mahber fee: 2.7%
+  // Stripe card fee: 2.9% + $0.30
+  // Total (T): 2.7% + 2.9% + $0.30 = 5.6% + $0.30
+  const totalAmount = Math.ceil(((baseAmount + 0.30) / (1 - 0.056)) * 100); // back to cents
+  return totalAmount;
+}
+
+//calculate amount with preccessing fee for ach
+export function calculateAmountWithProcessingFeeAch(amount: number): number {
+  if (!amount || amount <= 0) return 0;
+  // Convert cents to dollars
+  const baseAmount = amount / 100;
+  // Mahber fee: 2.7%
+  // Stripe ACH fee: 0.8%
+  // Total (T): 2.7% + 0.8% = 3.5%
+  const totalAmount = Math.ceil((baseAmount / (1 - 0.035)) * 100); // back to cents
+  return totalAmount;
+}
+
+export async function updateMahberAchPriceId(mahber: Mahber): Promise<string> {
+  if (!mahber.stripe_product_id) {
+    throw new Error('Mahber does not have a Stripe product ID');
+  }
+  let updatedFields: any = {};
+  if (!mahber.stripe_price_fee_ach_id) {
+      // Use product id from above or existing
+      const validIntervals = ['day', 'week', 'month', 'year'];
+      const productId = updatedFields.stripe_product_id || mahber.stripe_product_id;
+      let interval = mahber.contribution_unit ?? '';
+      const interval_count = mahber.contribution_frequency;
+      if (!validIntervals.includes(interval)) {
+        console.warn(`Invalid contribution unit "${interval}" for Mahber ${mahber.name}. Skipping price creation.`);
+        return '';
+        // interval = 'month'; // Default to month if invalid (unreachable after continue)
+      }
+      const recurring = {
+        interval: interval as Stripe.Price.Recurring.Interval,
+        interval_count: Number(interval_count)
+      };
+      const amountWithFee = calculateAmountWithProcessingFeeAch(Number(mahber.contribution_amount) * 100);
+      const priceFeeAch = await stripeClient.prices.create({
+        product: productId,
+        unit_amount: Math.round(amountWithFee),
+        currency: 'usd',
+        recurring
+      });
+      updatedFields.stripe_price_fee_ach_id = priceFeeAch.id;
+    }
+
+    if (Object.keys(updatedFields).length > 0) {
+      await mahber.update(updatedFields);
+      console.log(`Updated Mahber ${mahber.name} with Stripe product/price.`);
+    }
+
+  return updatedFields.stripe_price_fee_ach_id;
+}
+
+
+export async function updateMahberCardPriceId(mahber: Mahber): Promise<string> {
+  if (!mahber.stripe_product_id) {
+    throw new Error('Mahber does not have a Stripe product ID');
+  }
+  let updatedFields: any = {};
+  if (!mahber.stripe_price_fee_card_id) {
+      // Use product id from above or existing
+      const validIntervals = ['day', 'week', 'month', 'year'];
+      const productId = updatedFields.stripe_product_id || mahber.stripe_product_id;
+      let interval = mahber.contribution_unit ?? '';
+      const interval_count = mahber.contribution_frequency;
+      if (!validIntervals.includes(interval)) {
+        console.warn(`Invalid contribution unit "${interval}" for Mahber ${mahber.name}. Skipping price creation.`);
+        return '';
+        // interval = 'month'; // Default to month if invalid (unreachable after continue)
+      }
+      const recurring = {
+        interval: interval as Stripe.Price.Recurring.Interval,
+        interval_count: Number(interval_count)
+      };
+      const amountWithFee = calculateAmountWithProcessingFeeCard(Number(mahber.contribution_amount) * 100);
+      const priceFeeCard = await stripeClient.prices.create({
+        product: productId,
+        unit_amount: Math.round(amountWithFee),
+        currency: 'usd',
+        recurring
+      });
+      updatedFields.stripe_price_fee_card_id = priceFeeCard.id;
+    }
+
+    if (Object.keys(updatedFields).length > 0) {
+      await mahber.update(updatedFields);
+      console.log(`Updated Mahber ${mahber.name} with Stripe product/price.`);
+    }
+
+  return updatedFields.stripe_price_fee_card_id;
 }

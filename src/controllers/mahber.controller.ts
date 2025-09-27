@@ -1,6 +1,7 @@
 import { Response, Request } from 'express';
 import { createMahberWithContributionTerm, getMyMahibersService, getMahbersByUser, getMahberById, updateMahber, deleteMahber, getAllMahbers, getJoinedMahbers, checkMahberStripeAccount, getFeaturedMahbers, getAuthenticatedMahbers, getUnauthenticatedMahbers } from '../services/mahber.service';
 import { Member } from '../models/member.model';
+import { createFirstContributionForMember } from '../services/mahber_contribution.service';
 import { Mahber } from '../models/mahber.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import dotenv from 'dotenv';
@@ -8,6 +9,7 @@ import { getUserById } from '../services/user.service';
 import { Op } from 'sequelize';
 import stripeClient from '../config/stripe.config';
 import logger from '../utils/logger';
+import { MahberContribution } from '../models/mahber_contribution.model';
 dotenv.config();
 
 // Helper to check if the authenticated user is an admin of the Mahber
@@ -76,6 +78,15 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
       role: 'admin',
       status: 'accepted'
     });
+
+    //check if contribution is not null and create the first MahberContribution for the admin or creator of the mahber
+    if (contributionTerm) {
+      // implement code here
+      await createFirstContributionForMember(
+        mahber.id,
+        Number(req.user.id)
+      );
+    }
 
     res.status(201).json({
       mahber,
@@ -463,44 +474,6 @@ export const getMahbersWithUserStanding = async (req: AuthenticatedRequest, res:
   const result = await getAuthenticatedMahbers(where, page, perPage, String(req.user.id));
   res.json({...result});
 };
-
-//   const offset = (page - 1) * perPage;
-
-//   const { rows, count } = await Mahber.findAndCountAll({
-//     where,
-//     offset,
-//     limit: perPage,
-//     order: [['id', 'DESC']]
-//   });
-
-//   // Get member records for this user
-//   const userId = String(req.user.id);
-//   const mahberIds = rows.map((m: any) => String(m.id));
-//   const memberRecords = await Member.findAll({
-//     where: {
-//       member_id: userId,
-//       edir_id: { [Op.in]: mahberIds }
-//     }
-//   });
-//   const memberMap: Record<string, { status: string, role?: string }> = {};
-//   memberRecords.forEach(m => {
-//     memberMap[String(m.edir_id)] = { status: m.status, role: m.status === 'accepted' ? m.role : undefined };
-//   });
-
-//   // Attach memberStatus and memberRole to each Mahber
-//   const dataWithStatus = rows.map((m: any) => ({
-//     ...castContributionAmount(m.toJSON()),
-//     memberStatus: memberMap[String(m.id)]?.status || 'none',
-//     memberRole: memberMap[String(m.id)]?.role || null
-//   }));
-
-//   res.json({
-//     data: dataWithStatus,
-//     total: count,
-//     page,
-//     perPage
-//   });
-// };
 
 
 export const getFeaturedPromotedMahbersController = async (req: Request, res: Response) => {

@@ -10,6 +10,7 @@ import { User } from '../models/user.model';
 import { MahberContribution } from '../models/mahber_contribution.model';
 import stripeClient from '../config/stripe.config';
 import { Stripe } from 'stripe';
+import * as utils from '../utils/utils';
 
 export const createMahber = async (mahber: Omit<Mahber, 'id' | 'created_at' | 'updated_at'>): Promise<Mahber> => {
   const created = await Mahber.create(mahber);
@@ -36,6 +37,7 @@ export const createMahberWithContributionTerm = async (payload: any) => {
 
     // Create Stripe price if not present in payload
     let priceId = payload.stripe_price_id;
+    let priceFeeCardId = null, priceFeeAchId = null;
     if (!priceId) {
       const recurring =
         payload.contribution_frequency && payload.contribution_unit
@@ -50,7 +52,28 @@ export const createMahberWithContributionTerm = async (payload: any) => {
         currency: 'usd', // or use payload.currency if available
         recurring
       });
+      const priceFeeCard = await stripeClient.prices.create({
+        product: product.id,
+        unit_amount: Math.round(utils.calculateAmountWithProcessingFeeCard(Number(payload.contribution_amount) * 100)), // Stripe expects amount in cents
+        currency: 'usd',
+        recurring: {
+          interval: payload.contribution_unit,
+          interval_count: Number(payload.contribution_frequency)
+        }
+      });
+
+      const priceFeeAch = await stripeClient.prices.create({
+        product: product.id,
+        unit_amount: Math.round(utils.calculateAmountWithProcessingFeeAch(Number(payload.contribution_amount) * 100)), // Stripe expects amount in cents
+        currency: 'usd',
+        recurring: {
+          interval: payload.contribution_unit,
+          interval_count: Number(payload.contribution_frequency)
+        }
+      });
       priceId = price.id;
+      priceFeeCardId = priceFeeCard.id;
+      priceFeeAchId = priceFeeAch.id;
     }
 
     // Extract Mahber fields

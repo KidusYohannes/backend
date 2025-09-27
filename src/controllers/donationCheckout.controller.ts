@@ -7,6 +7,7 @@ import { Payment } from '../models/payment.model';
 import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
 import { log } from 'console';
+import Stripe from 'stripe';
 
 dotenv.config();
 const generatedSessionId = generateUniquePaymentId();
@@ -50,12 +51,19 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
     }
 
     const { 
-        amount, 
         description, 
         currency = 'usd',
         success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`,
-        cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`
-    } = req.body;
+        cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`,
+        payment_method = 'card',
+        processing_fee = false
+      } = req.body;
+      // Dynamically set allowed methods
+    const _payment_method_types = payment_method === 'ach'
+    ? ['us_bank_account']
+    : ['card'];
+    let { amount } = req.body;
+    amount = calculateAmountWithProcessingFee(amount, payment_method, processing_fee);
     if (!amount || typeof amount !== 'number' || amount <= 0) {
       logger.error('Invalid donation amount');
       res.status(400).json({ message: 'Invalid donation amount' });
@@ -78,7 +86,7 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
     // const cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`;
 
     const session = await stripeClient.checkout.sessions.create({
-      payment_method_types: ['card', 'us_bank_account'],
+      payment_method_types: _payment_method_types as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
       mode: 'payment',
       customer: user.stripe_id,
       line_items: [
@@ -133,3 +141,42 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ message: error.message || 'Failed to create donation checkout session' });
   }
 };
+
+/**
+ * return amount after adding processing fee
+ * for ACH
+ * Mahber fee: 2.7%
+ * Stripe ACH fee: 0.8%
+ * Total (T): 2.7% + 0.8% = 3.5%
+ * 
+ * for card
+ * Mahber fee: 2.7%
+ * Stripe card fee: 2.9% + $0.30
+ * Total (T): 2.7% + 2.9% + $0.30 = 5.6% + $0.30
+ * @param amount
+ * @param payment_method
+ * @param processing_fee
+ * @returns total amount including processing fee
+ */
+function calculateAmountWithProcessingFee(amount: number, payment_method: string, processing_fee: boolean): number {
+  if (!amount || amount <= 0) return 0;
+
+  // Convert cents to dollars
+  const baseAmount = amount / 100;
+
+  if (!processing_fee) return amount; // return original amount in cents
+
+  payment_method = payment_method.toLowerCase();
+
+  let totalAmount: number;
+
+  if (payment_method === 'ach' || payment_method === 'us_bank_account') {
+    // For ACH payments, add 3.5%
+    totalAmount = Math.ceil((baseAmount / (1 - 0.035)) * 100); // back to cents
+  } else {
+    // For card payments, add 5.6% + $0.30
+    totalAmount = Math.ceil(((baseAmount + 0.30) / (1 - 0.056)) * 100); // back to cents
+  }
+
+  return totalAmount;
+}

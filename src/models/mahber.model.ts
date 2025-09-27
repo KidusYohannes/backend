@@ -10,6 +10,10 @@ interface MahberAttributes {
   stripe_account_id: string;
   stripe_product_id?: string; // <-- add this line
   stripe_price_id?: string; // new column for Stripe price ID
+  //price id with processing fee for card payments
+  stripe_price_fee_card_id?: string; // new column for Stripe price ID with card fee
+  //price id with processing fee for ach payments
+  stripe_price_fee_ach_id?: string; // new column for Stripe price ID with ACH fee
   stripe_status?: string; // new column for Stripe product status
   type?: string;
   contribution_unit?: string; // was contribution_period
@@ -42,6 +46,8 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public stripe_account_id!: string; // new column for Stripe account ID
   public stripe_product_id?: string; // <-- add this line
   public stripe_price_id?: string; // new column for Stripe price ID
+  public stripe_price_fee_card_id?: string; // new column for Stripe price ID with card fee
+  public stripe_price_fee_ach_id?: string; // new column for Stripe price ID with ACH fee
   public stripe_status?: string; // new column for Stripe product status
   public type?: string;
   public contribution_unit?: string; // was contribution_period
@@ -73,6 +79,8 @@ Mahber.init(
     stripe_account_id: { type: DataTypes.STRING, allowNull: false }, // new column for Stripe account ID
     stripe_product_id: { type: DataTypes.STRING }, // <-- add this line
     stripe_price_id: { type: DataTypes.STRING }, // new column for Stripe price ID
+    stripe_price_fee_card_id: { type: DataTypes.STRING }, // new column for Stripe price ID with card fee
+    stripe_price_fee_ach_id: { type: DataTypes.STRING }, // new column for Stripe price ID with ACH fee
     stripe_status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'inactive' }, // default to 'inactive'
     type: { type: DataTypes.STRING },
     contribution_unit: { type: DataTypes.STRING },

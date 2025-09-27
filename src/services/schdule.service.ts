@@ -9,6 +9,7 @@ import { MahberContributionTerm } from "../models/mahber_contribution_term.model
 import stripeClient from '../config/stripe.config';
 import Stripe from "stripe";
 import logger from "../utils/logger";
+import * as utils from '../utils/utils'
 
 /**
  * Scheduler to check Stripe accounts for Mahbers
@@ -95,14 +96,18 @@ cron.schedule('0 0 * * *', async () => {
  * It checks for Mahbers that are missing Stripe product or price IDs and creates them if necessary
  * It also updates the Mahber model with the new product/price IDs.
  */
-cron.schedule('0 0 * * *', async () => {
+cron.schedule('* * * * *', async () => {
   console.log('Running scheduled Stripe product/price check...');
   const WhereOptions: WhereOptions = {
     [Op.or]: [
         { stripe_product_id: { [Op.is]: null } },
         { stripe_product_id: '' },
         { stripe_price_id: { [Op.is]: null } },
-        { stripe_price_id: '' }
+        { stripe_price_id: '' },
+        { stripe_price_fee_card_id: { [Op.is]: null } },
+        { stripe_price_fee_card_id: '' },
+        { stripe_price_fee_ach_id: { [Op.is]: null } },
+        { stripe_price_fee_ach_id: '' }
       ]
   };
   const mahbers = await Mahber.findAll({
@@ -148,11 +153,63 @@ cron.schedule('0 0 * * *', async () => {
       };
       const price = await stripeClient.prices.create({
         product: productId,
-        unit_amount: Math.round(Number(mahber.contribution_amount) * 100),
+        unit_amount: Math.round(Number(mahber.contribution_amount)),
         currency: 'usd',
         recurring
       });
       updatedFields.stripe_price_id = price.id;
+    }
+
+    // Create price with processing fee for card payments if missing
+    if (!mahber.stripe_price_fee_card_id) {
+      // Use product id from above or existing
+      const validIntervals = ['day', 'week', 'month', 'year'];
+      const productId = updatedFields.stripe_product_id || mahber.stripe_product_id;
+      let interval = mahber.contribution_unit ?? '';
+      const interval_count = mahber.contribution_frequency;
+      if (!validIntervals.includes(interval)) {
+        console.warn(`Invalid contribution unit "${interval}" for Mahber ${mahber.name}. Skipping price creation.`);
+        continue;
+        // interval = 'month'; // Default to month if invalid (unreachable after continue)
+      }
+      const recurring = {
+        interval: interval as Stripe.Price.Recurring.Interval,
+        interval_count: Number(interval_count)
+      };
+      const amountWithFee = utils.calculateAmountWithProcessingFeeCard(Number(mahber.contribution_amount) * 100);
+      const priceFeeCard = await stripeClient.prices.create({
+        product: productId,
+        unit_amount: Math.round(amountWithFee),
+        currency: 'usd',
+        recurring
+      });
+      updatedFields.stripe_price_fee_card_id = priceFeeCard.id;
+    }
+
+    // Create price with processing fee for ach payments if missing
+    if (!mahber.stripe_price_fee_ach_id) {
+      // Use product id from above or existing
+      const validIntervals = ['day', 'week', 'month', 'year'];
+      const productId = updatedFields.stripe_product_id || mahber.stripe_product_id;
+      let interval = mahber.contribution_unit ?? '';
+      const interval_count = mahber.contribution_frequency;
+      if (!validIntervals.includes(interval)) {
+        console.warn(`Invalid contribution unit "${interval}" for Mahber ${mahber.name}. Skipping price creation.`);
+        continue;
+        // interval = 'month'; // Default to month if invalid (unreachable after continue)
+      }
+      const recurring = {
+        interval: interval as Stripe.Price.Recurring.Interval,
+        interval_count: Number(interval_count)
+      };
+      const amountWithFee = utils.calculateAmountWithProcessingFeeAch(Number(mahber.contribution_amount) * 100);
+      const priceFeeAch = await stripeClient.prices.create({
+        product: productId,
+        unit_amount: Math.round(amountWithFee),
+        currency: 'usd',
+        recurring
+      });
+      updatedFields.stripe_price_fee_ach_id = priceFeeAch.id;
     }
 
     if (Object.keys(updatedFields).length > 0) {

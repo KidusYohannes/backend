@@ -13,6 +13,9 @@ import sequelize from '../config/db'; // Adjust the path to your actual Sequeliz
 import logger from '../utils/logger';
 import stripeClient from '../config/stripe.config';
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model'
+import Stripe from 'stripe';
+import * as utils from '../utils/utils';
+import { log } from 'console';
 
 dotenv.config();
 const CHECKOUT_EXPIRES_AT = Math.floor(Date.now() / 1000) + 60 * 30; // make this 30 minutes
@@ -74,14 +77,14 @@ async function validateContributionIds(contributionIds: number[]) {
 
 // Helper to create Stripe Checkout session
 async function createStripeSession(paymentType: string, stripeCustomerId: string, mahber: any, req: AuthenticatedRequest, contributionIds: any, sessionData: any) {
-  const { expires_at, line_items, subscription_data, payment_intent_data } = sessionData;
+  const { expires_at, line_items, subscription_data, payment_intent_data, payment_method } = sessionData;
 
   const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
   const success_url = `${baseFrontendUrl}/stripe/success`;
   const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
     
   const session = await stripeClient.checkout.sessions.create({
-    payment_method_types: ['card', 'us_bank_account'],
+    payment_method_types: payment_method,
     mode: paymentType === 'subscription' ? 'subscription' : 'payment',
     customer: stripeCustomerId,
     line_items,
@@ -92,7 +95,7 @@ async function createStripeSession(paymentType: string, stripeCustomerId: string
     metadata: {
       mahber_id: mahber.id.toString(),
       member_id: req.user?.id?.toString() ?? '',
-      // contribution_ids: contributionIds.map(String), // Ensure IDs are strings
+      contribution_ids: contributionIds.map(String).join(','), // convert to string
       session_id: `{CHECKOUT_SESSION_ID}`,
       paymentType
     },
@@ -166,13 +169,14 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
 async function userHasActiveSubscription(userId: number, mahberId: number): Promise<boolean> {
   const member = await Member.findOne({
     where: {
-      member_id: userId,
-      edir_id: mahberId
+      member_id: String(userId),
+      edir_id: String(mahberId)
     }
   });
+  logger.info(`Member found: ${JSON.stringify(member)} and stripe subscription id: ${member?.stripe_subscription_id}`);
 
   //subscription must be either empty or null
-  if (member?.stripe_subscription_id) {
+  if (member?.stripe_subscription_id === null || member?.stripe_subscription_id === undefined || member?.stripe_subscription_id === '') {
     return false;
   }
   return true;
@@ -196,12 +200,18 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       price_id, 
       description, 
       contribution_id, 
-      amount, 
       currency = 'usd',
       success_url = `${baseFrontendUrl}/stripe/success`,
-      cancel_url = `${baseFrontendUrl}/stripe/cancel`
+      cancel_url = `${baseFrontendUrl}/stripe/cancel`,
+      payment_method = 'card',
+      processing_fee = false
     } = req.body;
+    let amount = req.body.amount;
 
+    // Dynamically set allowed methods
+    const _payment_method_types = payment_method === 'ach'
+    ? ['us_bank_account']
+    : ['card'];
     // Validate contribution IDs
     let contributionIds: number[] = [];
     if (typeof contribution_id === 'string' && contribution_id.trim() !== '') {
@@ -230,6 +240,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
     // Common session data
     const sessionData = {
+      payment_method_types: _payment_method_types as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
       success_url,
       cancel_url,
       expires_at: Math.floor(Date.now() / 1000) + 60 * 30
@@ -237,6 +248,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
     let session;
     if (paymentType === 'subscription') {
+      let priceId = price_id;
       if (!price_id) {
         return res.status(400).json({ message: 'Missing price_id for subscription' });
       }
@@ -245,10 +257,28 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
         res.status(400).json({ message: 'User already has an active subscription for this Mahber.' });
         return;
       }
+      logger.info(`Mahber and User validated successfully (marker): Mahber ID: ${mahberId}, User ID: ${req.user.id}`);
+      if(processing_fee){
+        if(payment_method === 'ach' || payment_method === 'us_bank_account'){
+          if(mahber.stripe_price_fee_ach_id === undefined || mahber.stripe_price_fee_ach_id === null){
+            priceId = utils.updateMahberAchPriceId(mahber);
+          }else{
+            priceId = mahber.stripe_price_fee_ach_id || priceId; // use price with processing fee if available
+          }
+        }
+        else if(payment_method === 'card'){
+          if(mahber.stripe_price_fee_card_id === undefined || mahber.stripe_price_fee_card_id === null){
+            priceId = utils.updateMahberCardPriceId(mahber);
+          }
+          else{
+            priceId = mahber.stripe_price_fee_card_id || priceId; // use price with processing fee if available
+          }
+        }
+      }
 
       session = await createStripeSession(paymentType, stripeCustomerId, mahber, req, contributionIds, {
         ...sessionData,
-        line_items: [{ price: price_id, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         subscription_data: {
           transfer_data: {
             destination: mahber.stripe_account_id
@@ -280,6 +310,8 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       }
       
     } else {
+
+      amount = calculateAmountWithProcessingFee(Number(amount), payment_method, processing_fee);
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return res.status(400).json({ message: 'Invalid amount' });
       }
@@ -308,25 +340,25 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
     }
 
     let contribution_amount = amount;
-      const contributionTerm = await MahberContributionTerm.findOne({ where: { mahber_id: mahber.id } });
-      if(contributionTerm && (amount === null || amount === undefined)){
-        contribution_amount = contributionTerm.amount;
-      }
-      // If no contribution IDs are provided, create a payment record without linking to contributions
-      if (contributionIds.length === 0) {
-        const contribution_id = paymentType === 'subscription' ? '' : 'donation';
-        await Payment.create({
-          stripe_payment_id: generatedSessionId,
-          receipt_url: String(session.url) ?? '',
-          method: paymentType === 'subscription' ? 'subscription' : 'one-time',
-          contribution_id: contribution_id,
-          member_id: Number(req.user?.id) ?? '',
-          mahber_id: String(mahber.id),
-          amount: contribution_amount,
-          session_id: String(session.id),
-          status: 'processing'
-        });
-      }
+    const contributionTerm = await MahberContributionTerm.findOne({ where: { mahber_id: mahber.id } });
+    if(contributionTerm && (amount === null || amount === undefined)){
+      contribution_amount = contributionTerm.amount;
+    }
+    // If no contribution IDs are provided, create a payment record without linking to contributions
+    if (contributionIds.length === 0) {
+      const contribution_id = paymentType === 'subscription' ? '' : 'donation';
+      await Payment.create({
+        stripe_payment_id: generatedSessionId,
+        receipt_url: String(session.url) ?? '',
+        method: paymentType === 'subscription' ? 'subscription' : 'one-time',
+        contribution_id: contribution_id,
+        member_id: Number(req.user?.id) ?? '',
+        mahber_id: String(mahber.id),
+        amount: contribution_amount,
+        session_id: String(session.id),
+        status: 'processing'
+      });
+    }
 
     if (contributionIds.length > 0) {
       await handlePendingPaymentsAndContributions(contributionIds, String(mahber.id), session, req, paymentType, amount || 0);
@@ -348,3 +380,41 @@ function uuidv4(): string {
   });
 }
 
+/**
+ * return amount after adding processing fee
+ * for ACH
+ * Mahber fee: 2.7%
+ * Stripe ACH fee: 0.8%
+ * Total (T): 2.7% + 0.8% = 3.5%
+ * 
+ * for card
+ * Mahber fee: 2.7%
+ * Stripe card fee: 2.9% + $0.30
+ * Total (T): 2.7% + 2.9% + $0.30 = 5.6% + $0.30
+ * @param amount
+ * @param payment_method
+ * @param processing_fee
+ * @returns total amount including processing fee
+ */
+function calculateAmountWithProcessingFee(amount: number, payment_method: string, processing_fee: boolean): number {
+  if (!amount || amount <= 0) return 0;
+
+  // Convert cents to dollars
+  const baseAmount = amount / 100;
+
+  if (!processing_fee) return amount; // return original amount in cents
+
+  payment_method = payment_method.toLowerCase();
+
+  let totalAmount: number;
+
+  if (payment_method === 'ach' || payment_method === 'us_bank_account') {
+    // For ACH payments, add 3.5%
+    totalAmount = Math.ceil((baseAmount / (1 - 0.035)) * 100); // back to cents
+  } else {
+    // For card payments, add 5.6% + $0.30
+    totalAmount = Math.ceil(((baseAmount + 0.30) / (1 - 0.056)) * 100); // back to cents
+  }
+
+  return totalAmount;
+}
