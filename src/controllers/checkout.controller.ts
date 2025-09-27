@@ -77,14 +77,16 @@ async function validateContributionIds(contributionIds: number[]) {
 
 // Helper to create Stripe Checkout session
 async function createStripeSession(paymentType: string, stripeCustomerId: string, mahber: any, req: AuthenticatedRequest, contributionIds: any, sessionData: any) {
-  const { expires_at, line_items, subscription_data, payment_intent_data, payment_method } = sessionData;
+  const { expires_at, line_items, subscription_data, payment_intent_data, payment_method_types } = sessionData;
 
   const baseFrontendUrl = process.env.FRONTEND_URL || 'https://yenetech.com';
   const success_url = `${baseFrontendUrl}/stripe/success`;
   const cancel_url = `${baseFrontendUrl}/stripe/cancel`;
-    
+
+  logger.info(`creating session with payment method: ${payment_method_types}`);
+
   const session = await stripeClient.checkout.sessions.create({
-    payment_method_types: payment_method,
+    payment_method_types: payment_method_types,
     mode: paymentType === 'subscription' ? 'subscription' : 'payment',
     customer: stripeCustomerId,
     line_items,
@@ -129,8 +131,8 @@ async function handlePendingPaymentsAndContributions(contributionIds: number[], 
 }
 
 // Helper to find an active session
-async function findActiveSession(userId: number, contributionIds: number[], paymentType: string) {
-  logger.info(`Finding active session for User ID: ${userId}, Contribution IDs: ${contributionIds}, Payment Type: ${paymentType}`);
+async function findActiveSession(userId: number, contributionIds: number[], paymentType: string, payment_method: string[]) {
+  logger.info(`Finding active session for User ID: ${userId}, Contribution IDs: ${contributionIds}, Payment Type: ${paymentType}, Payment Method: ${payment_method}`);
   const now = Math.floor(Date.now() / 1000);
   const tenMinutesFromNow = now + 10 * 60; // 10 minutes
 
@@ -142,7 +144,7 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
     method: paymentType === 'subscription' ? 'subscription' : 'one-time',
   };
 
-  logger.debug(`Sequelize where condition: ${JSON.stringify(whereOptions)}`);
+  // logger.debug(`Sequelize where condition: ${JSON.stringify(whereOptions)}`);
 
   const activeSession = await Payment.findOne({
     where: whereOptions,
@@ -151,9 +153,18 @@ async function findActiveSession(userId: number, contributionIds: number[], paym
   });
 
   if (activeSession) {
-    logger.info(`Active session found: ${JSON.stringify(activeSession)}`);
+    // logger.info(`Active session found: ${JSON.stringify(activeSession)}`);
     if (typeof activeSession.session_id === 'string') {
       const session = await stripeClient.checkout.sessions.retrieve(activeSession.session_id);
+
+      //check if the session payment method types match the requested payment method
+      if (payment_method.some((method: string) => session.payment_method_types.includes(method))) {
+        // logger.info(`Payment method types match: ${payment_method}`);
+      } else {
+        logger.warn(`Payment method types do not match: ${payment_method}`);
+        return null;
+      }
+
       if (session && session.status === 'open' && session.expires_at > tenMinutesFromNow) {
         logger.info(`Returning active session: ${session.id}`);
         return session;
@@ -227,7 +238,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
     if (paymentType !== 'subscription' && contributionIds.length > 0) {
       // Check for an active session
-      const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType);
+      const activeSession = await findActiveSession(req.user.id, contributionIds, paymentType, _payment_method_types);
       if (activeSession) {
         logger.info(`Returning existing active session URL: ${activeSession.url}`);
         return res.json({ url: activeSession.url });
@@ -240,7 +251,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
 
     // Common session data
     const sessionData = {
-      payment_method_types: _payment_method_types as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+      payment_method_types: _payment_method_types,// as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
       success_url,
       cancel_url,
       expires_at: Math.floor(Date.now() / 1000) + 60 * 30
@@ -259,6 +270,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       }
       logger.info(`Mahber and User validated successfully (marker): Mahber ID: ${mahberId}, User ID: ${req.user.id}`);
       if(processing_fee){
+        logger.info(`Processing fee requested for subscription : payment_method: ${payment_method}`);
         if(payment_method === 'ach' || payment_method === 'us_bank_account'){
           if(mahber.stripe_price_fee_ach_id === undefined || mahber.stripe_price_fee_ach_id === null){
             priceId = utils.updateMahberAchPriceId(mahber);
@@ -315,6 +327,7 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return res.status(400).json({ message: 'Invalid amount' });
       }
+      logger.info(`Payment method types: ${_payment_method_types}`);
       session = await createStripeSession(paymentType, stripeCustomerId, mahber, req, contributionIds, {
         ...sessionData,
         line_items: [
