@@ -33,6 +33,7 @@ interface MahberAttributes {
   visibility?: string; // new column for visibility
   featured?: string; // new column for featured status, 1 is on 0 is off
   promoted?: string; // new column for promoted status, 1 is on 0 is off
+  processing_fee?: boolean; // virtual field
 }
 
 interface MahberCreationAttributes extends Optional<MahberAttributes, 'id'> {}
@@ -67,6 +68,7 @@ export class Mahber extends Model<MahberAttributes, MahberCreationAttributes> im
   public visibility?: string; // new column for visibility
   public featured?: string; // new column for featured status, 1 is on 0 is off
   public promoted?: string; // new column for promoted status, 1 is on 0 is off
+  public processing_fee?: boolean; // virtual field
 }
 
 Mahber.init(
@@ -100,6 +102,7 @@ Mahber.init(
     visibility: { type: DataTypes.STRING }, // new column for visibility
     featured: { type: DataTypes.STRING }, // new column for featured status, 1 is on 0 is off
     promoted: { type: DataTypes.STRING }, // new column for promoted status, 1 is on 0 is off
+    processing_fee: {type: DataTypes.BOOLEAN, defaultValue: false} // virtual field
   },
   {
     sequelize,

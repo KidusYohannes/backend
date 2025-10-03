@@ -55,13 +55,15 @@ export const createDonationPayment = async (req: AuthenticatedRequest, res: Resp
         currency = 'usd',
         success_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/success`,
         cancel_url = `${process.env.FRONTEND_URL || 'https://yenetech.com'}/stripe/cancel`,
-        payment_method = 'card',
-        processing_fee = false
+        payment_method = 'card'
       } = req.body;
       // Dynamically set allowed methods
     const _payment_method_types = payment_method === 'ach'
     ? ['us_bank_account']
     : ['card'];
+
+    let processing_fee = mahber.processing_fee || false;
+
     let { amount } = req.body;
     amount = calculateAmountWithProcessingFee(amount, payment_method, processing_fee);
     if (!amount || typeof amount !== 'number' || amount <= 0) {

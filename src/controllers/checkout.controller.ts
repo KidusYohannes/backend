@@ -215,9 +215,10 @@ export const createCheckoutPayment = async (req: AuthenticatedRequest, res: Resp
       success_url = `${baseFrontendUrl}/stripe/success`,
       cancel_url = `${baseFrontendUrl}/stripe/cancel`,
       payment_method = 'card',
-      processing_fee = false
     } = req.body;
     let amount = req.body.amount;
+
+    let processing_fee = mahber.processing_fee || false;
 
     // Dynamically set allowed methods
     const _payment_method_types = payment_method === 'ach'

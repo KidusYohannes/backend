@@ -2,8 +2,13 @@ import twilio from 'twilio';
 import logger from '../utils/logger';
 import { getTwilioClient, getMessagingFromConfig } from "../infra/twilio.client";
 import RestException from 'twilio/lib/base/RestException';
+import dotenv from 'dotenv';
+dotenv.config();
 
 
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = twilio(accountSid, authToken);
 
 
 export type SendResult =
@@ -102,23 +107,21 @@ export async function sendMassText({
   }
   return results;
 }
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = twilio(accountSid, authToken);
 
-async function createMessage() {
-  const message = await client.messages.create({
-    body: "This is the ship that made the Kessel Run in fourteen parsecs?",
-    from: "+15017122661",
-    to: "+15558675310",
+async function createMessage(message: string, to: string, from: string) {
+  const msg = await client.messages.create({
+    body: message,
+    from,
+    to,
   });
-
-  console.log(message.body);
+    // from: "+15017122661",
+    // to: "+15558675310",
+  console.log(msg.body);
 }
 
-export const testMessage = async () => {
+export const testMessage = async (message: string, to: string, from: string) => {
   try {
-    createMessage
+    createMessage(message, to, from);
   } catch (error) {
     console.error("Error sending message:", error);
   }
