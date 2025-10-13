@@ -3,7 +3,7 @@ import sequelize from '../config/db';
 
 interface EventsRsvpAttributes {
     id: number;
-    event_id: number;
+    event_id: string;
     user_id: number;
     status: 'yes' | 'no' | 'maybe';
     createdAt: Date;
@@ -14,7 +14,7 @@ interface EventsRsvpCreationAttributes extends Optional<EventsRsvpAttributes, 'i
 
 class EventsRsvp extends Model<EventsRsvpAttributes, EventsRsvpCreationAttributes> implements EventsRsvpAttributes {
     public id!: number;
-    public event_id!: number;
+    public event_id!: string;
     public user_id!: number;
     public status!: 'yes' | 'no' | 'maybe';
     public createdAt!: Date;
@@ -24,7 +24,7 @@ class EventsRsvp extends Model<EventsRsvpAttributes, EventsRsvpCreationAttribute
 EventsRsvp.init(
     {
         id: {type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true},
-        event_id: {type: DataTypes.INTEGER, allowNull: false},
+        event_id: {type: DataTypes.STRING, allowNull: false},
         user_id: {type: DataTypes.INTEGER, allowNull: false},
         status: {type: DataTypes.ENUM('yes', 'no', 'maybe'), allowNull: false},
         createdAt: {type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW},

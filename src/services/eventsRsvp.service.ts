@@ -1,6 +1,7 @@
 import EventsRsvp from '../models/events.rsvp.model';
 import { Op } from 'sequelize';
 import EventsRsvpCreationAttributes from '../models/events.rsvp.model';
+import { User } from '../models/user.model';
 
 export const createRsvp = async (rsvpData: Omit<EventsRsvpCreationAttributes, 'id'>): Promise<EventsRsvp> => {
   const rsvp = await EventsRsvp.create(rsvpData);
@@ -25,8 +26,23 @@ export const getAllRsvps = async (
     order: [['id', 'DESC']]
   });
 
+  // map user name and email to each rsvp
+  const userIds = rows.map(rsvp => rsvp.user_id);
+  const users = await User.findAll({
+    where: { id: { [Op.in]: userIds } },
+    attributes: ['id', 'full_name', 'email']
+  });
+  const userMap = new Map(users.map(u => [String(u.id), u]));  
+
   return {
-    data: rows.map(rsvp => rsvp.toJSON() as EventsRsvp),
+    data: rows.map(rsvp => {
+      const user = userMap.get(String(rsvp.user_id));
+      return {
+        ...rsvp.toJSON(),
+        user_name: user ? user.full_name : 'Unknown',
+        user_email: user ? user.email : 'Unknown'
+      } as unknown as EventsRsvp;
+    }),
     total: count,
     page,
     perPage

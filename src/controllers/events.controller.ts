@@ -230,3 +230,25 @@ export const deleteRsvp = async (req: Request, res: Response) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+/**
+ * get all event for mahber in desc order
+ */
+export const getMahberEvents = async (req: Request, res: Response) => {
+  const specificSearch = typeof req.query.specificSearch === 'string' ? JSON.parse(req.query.specificSearch) : {};
+  const search = typeof req.query.search === 'string' ? req.query.search : '';
+  const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+  const perPage = req.query.perPage ? parseInt(req.query.perPage as string, 10) : 10;
+  const mahber_id = req.query.mahber_id ? req.query.mahber_id as string : null;
+  if(mahber_id && isNaN(Number(mahber_id))) {
+    res.status(400).json({ message: 'Bad Request: mahber_id must be a number' });
+    return;
+  }
+  try {
+    const events = await eventsService.getAllMahberEvents(Number(mahber_id), Number(page), Number(perPage));
+    res.json(events);
+  } catch (err: any) {
+    logger.error(`Error fetching mahber events: ${err.message}`);
+    res.status(400).json({ message: err.message });
+  }
+};

@@ -9,7 +9,7 @@ const router = express.Router();
  * Twilio sends form-encoded webhooks.
  * Ensure you have app.use(express.urlencoded({ extended: false })) in your app setup.
  */
-router.post("/status", async (req: Request, res: Response) => {
+router.post("/sms/status", async (req: Request, res: Response) => {
   try {
     const {
       MessageSid,

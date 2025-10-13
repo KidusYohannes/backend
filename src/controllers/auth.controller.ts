@@ -74,7 +74,7 @@ export const activateUserAccount = async (req: Request, res: Response) => {
     return;
   }
   if (user.link_token !== token) {
-    res.status(400).json({ message: 'Invalid token or email: ' + user.link_token + ' : ' + token });
+    res.status(400).json({ message: 'Invalid token or email'});
     return;
   }
   if (!user.token_expiration || new Date(user.token_expiration) < new Date()) {
