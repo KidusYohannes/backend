@@ -14,6 +14,7 @@ import Stripe from 'stripe';
 import logger from '../utils/logger';
 import { getPeriodName } from '../utils/utils'; // Import the period name utility function
 import { MahberContributionTerm } from '../models/mahber_contribution_term.model';
+import { log } from 'console';
 
 dotenv.config();
 
@@ -416,19 +417,29 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
   try {
     // const payments = await Payment.findAll({ where: { mahber_id: mahberId } });
 
+    const where = { mahber_id: String(mahberId) };
+
+    logger.info(`Querying payments with where: ${JSON.stringify(where)}`);
     const { rows, count } = await Payment.findAndCountAll({
-      where: { mahber_id: String(mahberId) },
+      where,
       offset: (Number(page) - 1) * Number(perPage),
       limit: Number(perPage),
       order: [['id', 'DESC']]
     });
 
+    logger.info(`Found ${count} payments for Mahber ID ${mahberId}`);
+
     const contributionIds = rows.flatMap(p => p.contribution_id ? p.contribution_id.split(',').map(Number) : []);
+    logger.info(`Extracted contribution IDs: ${JSON.stringify(contributionIds)}`);
     const contributionPeriods = await getContributionPeriods(contributionIds);
+    logger.info(`Fetched contribution periods: ${JSON.stringify(contributionPeriods)}`);
 
     const userIds = Array.from(new Set(rows.map(p => p.member_id))).filter(Boolean);
+    logger.info(`Unique user IDs from payments: ${JSON.stringify(userIds)}`);
     const users = await User.findAll({ where: { id: { [Op.in]: userIds } } });
+
     const userMap = new Map(users.map(u => [u.id, { name: u.full_name, email: u.email }]));
+    logger.info(`User Map: ${JSON.stringify(Array.from(userMap.entries()))}`);
 
     const data = rows.map(p => ({
       ...p.toJSON(),
@@ -437,6 +448,8 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
       user_email: typeof p.member_id === 'number' ? userMap.get(p.member_id)?.email || null : null,
       contribution_periods: contributionPeriods.filter(cp => p.contribution_id?.split(',').map(Number).includes(cp.contribution_id))
     }));
+
+    logger.info(`Final payment data: ${JSON.stringify(data)}`);
 
     res.json({ data, total: count, page: Number(page), perPage: Number(perPage) });
   } catch (err: any) {
