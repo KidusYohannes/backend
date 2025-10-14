@@ -20,6 +20,16 @@ function generateToken(length = 6): string {
   return token;
 }
 
+export const generateTokenExport = (length = 6): string => {
+  // Generate 6-character uppercase alphanumeric token
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let token = '';
+  for (let i = 0; i < 6; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
 export const getAllUsers = async (): Promise<User[]> => {
   const users = await UserModel.findAll();
   return users.map(u => u.toJSON() as User);

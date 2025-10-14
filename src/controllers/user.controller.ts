@@ -10,7 +10,8 @@ import {
   findActiveUserByEmail,
   validateUserPassword,
   findUserByEmail,
-  activateUser
+  activateUser,
+  generateTokenExport
 } from '../services/user.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 
@@ -34,9 +35,13 @@ export const addUser = async (req: Request, res: Response) => {
   const existingUser = await findActiveUserByEmail(req.body.email);
   if (existingUser) {
     if (existingUser.status === 'pending') {
+      // generate another token and resend email
+      const newToken = generateTokenExport(6); // 6-character token
+      const newExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+      await updateUser(existingUser.id, { link_token: newToken, token_expiration: newExpiration.toISOString() });
       const emailContent = generateEmailVerificationEmail(existingUser);
       await sendEmailHtml(existingUser.email, emailContent.subject, emailContent.html);
-      res.status(200).json({ message: 'Activation email resent. Please check your email.' });
+      res.status(200).json({ message: 'Email already in use, Activation email resent. Please check your email.' });
       return;
     }
     res.status(400).json({ message: 'Email already in use' });

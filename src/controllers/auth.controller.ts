@@ -6,7 +6,8 @@ import {
   findUserByEmail,
   activateUser,
   updateUser,
-  getUserById
+  getUserById,
+  generateTokenExport
 } from '../services/user.service';
 import { generateForgotPasswordEmail, generateEmailVerificationEmail } from './email.controller';
 import { sendEmail, sendEmailHtml } from '../services/email.service'; // Adjust import if needed
@@ -67,18 +68,18 @@ export const activateUserAccount = async (req: Request, res: Response) => {
     res.status(404).json({ message: 'User not found' });
     return;
   }
-  if (user.status === 'pending') {
-    const emailContent = generateEmailVerificationEmail(user);
-    await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
-    res.status(200).json({ message: 'Activation email resent. Please check your email.' });
-    return;
-  }
   if (user.link_token !== token) {
     res.status(400).json({ message: 'Invalid token or email'});
     return;
   }
   if (!user.token_expiration || new Date(user.token_expiration) < new Date()) {
-    res.status(400).json({ message: 'Token expired' });
+    // generate another token and resend email
+    const newToken = generateTokenExport(6); // 6-character token
+    const newExpiration = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+    await updateUser(user.id, { link_token: newToken, token_expiration: newExpiration.toISOString() });
+    const emailContent = generateEmailVerificationEmail(user);
+    await sendEmailHtml(user.email, emailContent.subject, emailContent.html);
+    res.status(400).json({ message: 'Token expired, activation email resent. Please check your email.' });
     return;
   }
   const activated = await activateUser(email, token);
