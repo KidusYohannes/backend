@@ -429,7 +429,25 @@ export const getMahberPaymentReports = async (req: AuthenticatedRequest, res: Re
 
     logger.info(`Found ${count} payments for Mahber ID ${mahberId}`);
 
-    const contributionIds = rows.flatMap(p => p.contribution_id ? p.contribution_id.split(',').map(Number) : []);
+    let contributionIds: number[] = [];
+    rows.forEach(p => {
+      if (p.contribution_id) {
+        if(p.contribution_id !== 'donation'){
+          // check if contribution id contains comma
+          if(p.contribution_id.indexOf(',') === -1){
+            // there is a single contribution id
+            const cid = Number(p.contribution_id);
+            if(!isNaN(cid) && !contributionIds.includes(cid)){
+              contributionIds.push(cid);
+            }
+          } else {
+            contributionIds.push(...p.contribution_id.split(',').map(Number));
+          }
+        }
+      }
+    });
+
+    // const contributionIds = rows.flatMap(p => p.contribution_id ? p.contribution_id.split(',').map(Number) : []);
     logger.info(`Extracted contribution IDs: ${JSON.stringify(contributionIds)}`);
     const contributionPeriods = await getContributionPeriods(contributionIds);
     logger.info(`Fetched contribution periods: ${JSON.stringify(contributionPeriods)}`);

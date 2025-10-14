@@ -180,7 +180,7 @@ export const getEventRsvps = async (req: AuthenticatedRequest, res: Response) =>
     return;
   }
   if (Number(event.created_by) !== Number(userId)) {
-    logger.info(`User ${userId} is not the creator of event ${event.id} and event creator is ${event.created_by}`);
+    // logger.info(`User ${userId} is not the creator of event ${event.id} and event creator is ${event.created_by}`);
     res.status(403).json({ message: 'Forbidden: Only the event creator can view RSVPs.' });
     return;
   }
