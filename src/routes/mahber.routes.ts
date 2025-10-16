@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { addMahiber, getMyMahibers, getMahiber, editMahiber, removeMahiber, getMahbers, getJoinedMahibers, getOnboardingLink, getMahbersWithUserStanding,
-    getFeaturedPromotedMahbersController, getFeaturedPromotedMahbersControllerAuthenticated
+    getFeaturedPromotedMahbersController, getFeaturedPromotedMahbersControllerAuthenticated, getAuthenticatedMahiber
  } from '../controllers/mahber.controller';
 import { getMahberMembers } from '../controllers/member.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
@@ -12,6 +12,7 @@ router.get('/', authenticateToken, getMyMahibers);
 router.get('/joined', authenticateToken, getJoinedMahibers);
 router.get('/all', getMahbers);
 router.get('/all-authenticated', authenticateToken, getMahbersWithUserStanding); // For authenticated users only
+router.get('/authenticated/:id', authenticateToken, getAuthenticatedMahiber);
 router.get('/:id', getMahiber);
 router.put('/:id', authenticateToken, editMahiber);
 router.delete('/:id', authenticateToken, removeMahiber);

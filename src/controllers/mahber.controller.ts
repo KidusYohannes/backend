@@ -161,6 +161,34 @@ export const getMyMahibers = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
+export const getAuthenticatedMahiber = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  const mahberId = Number(req.params.id);
+  const userId = String(req.user.id);
+  try {
+    
+    if (!mahberId) {
+      res.status(404).json({ message: 'Mahber not found' });
+      return;
+    } 
+
+    const where: any = { id: mahberId };
+    const result = await getAuthenticatedMahbers(where, 1, 1, userId);
+    if (result.total === 0) {
+      res.status(404).json({ message: 'Mahber not found or access denied' });
+      return;
+    }
+    const mahber = result.data[0];
+    res.json(mahber);
+    
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getJoinedMahibers = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: 'Unauthorized' });

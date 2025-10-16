@@ -2,6 +2,7 @@ import EventsRsvp from '../models/events.rsvp.model';
 import { Op } from 'sequelize';
 import EventsRsvpCreationAttributes from '../models/events.rsvp.model';
 import { User } from '../models/user.model';
+import Events from '../models/events.model';
 
 export const createRsvp = async (rsvpData: Omit<EventsRsvpCreationAttributes, 'id'>): Promise<EventsRsvp> => {
   const rsvp = await EventsRsvp.create(rsvpData);
@@ -34,13 +35,22 @@ export const getAllRsvps = async (
   });
   const userMap = new Map(users.map(u => [String(u.id), u]));  
 
+  // add event title with the response using the event id from the rsvp model
+  const eventIds = rows.map(rsvp => rsvp.event_id);
+  const events = await Events.findAll({
+    where: { id: { [Op.in]: eventIds } },
+    attributes: ['id', 'title']
+  });
+  const eventMap = new Map(events.map(e => [String(e.id), e.title]));
+
   return {
     data: rows.map(rsvp => {
       const user = userMap.get(String(rsvp.user_id));
       return {
         ...rsvp.toJSON(),
         user_name: user ? user.full_name : 'Unknown',
-        user_email: user ? user.email : 'Unknown'
+        user_email: user ? user.email : 'Unknown',
+        event_title: eventMap.get(String(rsvp.event_id)) || 'Unknown'
       } as unknown as EventsRsvp;
     }),
     total: count,

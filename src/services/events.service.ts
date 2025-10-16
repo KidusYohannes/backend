@@ -315,11 +315,24 @@ async function getEventsWithRsvp(
             }
           });
 
+
+          // get mahber names for each event using the mahber id in the event model and batch load mahber names
+          // Ensure ev is properly transformed
+          // const eventData = ev.toJSON ? ev.toJSON() : ev;
           // Ensure ev is properly transformed
           const eventData = ev.toJSON ? ev.toJSON() : ev;
+
+          const mahberNames = await Mahber.findAll({
+            where: {
+              id: eventData.mahber_id
+            },
+            attributes: ['name']
+          });
+
           const _return = {
             ...eventData,
-            event_rsvp: rsvpCounts
+            event_rsvp: rsvpCounts,
+            mahber_names: mahberNames.map(m => m.name)[0] || ''
           };
           logger.info(`Returning event data with RSVP: ${JSON.stringify(_return)}`);
           return _return;
@@ -426,6 +439,7 @@ async function getEventsWithRsvpAuthenticated(
           });
 
           logger.info(`Fetched ${eventRsvp.length} RSVP records for event ID ${eventId}.`);
+          
 
           // Aggregate RSVP counts into a single object
           const rsvpCounts = { yes: 0, no: 0, maybe: 0 };
@@ -437,10 +451,24 @@ async function getEventsWithRsvpAuthenticated(
             }
           });
 
+          // get mahber names for each event using the mahber id in the event model and batch load mahber names
+          // Ensure ev is properly transformed
+          const eventData = ev.toJSON ? ev.toJSON() : ev;
+
+          const mahberNames = await Mahber.findAll({
+            where: {
+              id: eventData.mahber_id
+            },
+            attributes: ['name']
+          });
+
+          logger.info(`Fetched mahber names for event ID ${eventId}: ${JSON.stringify(mahberNames)}`);
+
           const _return = {
             ...ev.toJSON(),
             event_rsvp: rsvpCounts,
-            rsvp_status
+            rsvp_status,
+            mahber_names: mahberNames.map(m => m.name)[0] || ''
           };
           logger.info(`Returning event data with RSVP: ${JSON.stringify(_return)}`);
           return _return;
