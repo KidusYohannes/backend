@@ -139,7 +139,6 @@ export const getAllEventsForUser = async (
     Number(userId)
   )
 
-
   // get event rsvps for this user and the events, rows
   // const eventIds = rows.map(e => String(e.id));
   // const rsvps = eventIds.length
@@ -244,6 +243,29 @@ export const getAllMahberEvents = async (
   return { data, total, page: currentPage, perPage: currentPerPage };
 };
 
+
+
+  export const getEventsByUserId = async (
+    userId: string,
+    page = 1,
+    perPage = 10,
+    search = ''
+  ): Promise<{ data: any; total: number; page: number; perPage: number }> => {
+    const where: any = { created_by: userId };
+    if (search) {
+      where.title = { [Op.iLike]: `%${search}%` };
+    }
+
+    const offset = (page - 1) * perPage;
+    const { data, total: count, page: currentPage, perPage: currentPerPage } = await getEventsWithRsvpAuthenticated(
+      where,
+      perPage,
+      page,
+      Number(userId)
+    );
+
+    return { data, total: count, page: currentPage, perPage: currentPerPage };
+  };
 
 /**
  * get events with rsvp status counts for every event inside the response json like 

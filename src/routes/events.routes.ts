@@ -1,7 +1,20 @@
 // create a route for all events exported functions from events controller
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { createEvent, createRsvp, getAllEvents, getAllEventsForUser, getEventById, getEventRsvps, updateEvent, updateRsvp, deleteEvent,deleteRsvp, getMahberEvents} from '../controllers/events.controller';
+import { 
+    createEvent, 
+    createRsvp, 
+    getAllEvents, 
+    getAllEventsForUser, 
+    getEventById, 
+    getEventRsvps, 
+    updateEvent, 
+    updateRsvp, 
+    deleteEvent,
+    deleteRsvp, 
+    getMahberEvents,
+    getUserEvents
+} from '../controllers/events.controller';
 
 const router = Router();
 
@@ -11,6 +24,7 @@ router.get('/', getAllEvents);
 //add a log before redirecting to controller in the routes
 router.get('/authenticated', authenticateToken, getAllEventsForUser);
 router.get('/mahber/', getMahberEvents);
+router.get('/my-events', authenticateToken, getUserEvents);
 
 router.put('/rsvps/:id', updateRsvp);
 router.delete('/rsvps/:id', deleteRsvp);

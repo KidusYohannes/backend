@@ -252,3 +252,25 @@ export const getMahberEvents = async (req: Request, res: Response) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+
+export const getUserEvents = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized: user not found in request' });
+    return;
+  }
+  const {page = 1, perPage = 10, search = ''} = req.query;
+  const userId = req.user.id;
+  try {
+    const events = await eventsService.getEventsByUserId(
+      String(userId),
+      Number(page),
+      Number(perPage),
+      String(search)
+    );
+    res.json(events);
+  } catch (err: any) {
+    logger.error(`Error fetching user events: ${err.message}`);
+    res.status(400).json({ message: err.message });
+  }
+}
