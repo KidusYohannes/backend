@@ -67,8 +67,8 @@ export const getOnboardingLink = async (req: AuthenticatedRequest, res: Response
       await updateMahber(mahberId, mahber, req.user.id);
     }
 
-    const refreshUrl = req.body.refresh_url || "https://yenetech.com/stripe/refresh";
-    const returnUrl = req.body.return_url || "https://yenetech.com/stripe/return";
+    const refreshUrl = req.body.refresh_url || "https://mahber.app/stripe/payment_success";
+    const returnUrl = req.body.return_url || "https://mahber.app/stripe/payment_cancel";
     const accountLink = await stripeClient.accountLinks.create({
       account: accountId,
       refresh_url: refreshUrl,

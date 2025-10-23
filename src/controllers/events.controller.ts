@@ -3,6 +3,9 @@ import * as eventsService from '../services/events.service';
 import * as eventsRsvpService from '../services/eventsRsvp.service';
 import logger from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { Mahber } from '../models/mahber.model';
+import { Member } from '../models/member.model';
+import { WhereOptions } from 'sequelize';
 
 /**
  * Create a new event.
@@ -131,6 +134,31 @@ export const createRsvp = async (req: AuthenticatedRequest, res: Response) => {
   const event = await eventsService.getEventById(Number(eventId));
   if (!event) {
     res.status(404).json({ message: 'Event not found' });
+    return;
+  }
+  const body = { ...req.body, user_id: String(req.user.id), event_id: String(eventId) };
+
+  // If event is not public, ensure user is an accepted member of the event's mahber
+  const isPublic = event.is_public === true || String(event.is_public) === 'true';
+  if (!isPublic) {
+    const mahberId = event.mahber_id !== undefined && event.mahber_id !== null ? String(event.mahber_id) : null;
+    if (!mahberId) {
+      const rsvp = await eventsRsvpService.createRsvp(body);
+      res.status(201).json(rsvp);
+      // res.status(403).json({ message: 'Forbidden: Event is not public and no mahber associated' });
+      return;
+    }
+    const member = await Member.findOne({
+      where: {
+        member_id: String(req.user.id),
+        edir_id: mahberId,
+        status: 'accepted'
+      }
+    });
+    if (!member) {
+      res.status(403).json({ message: 'Forbidden: Event is not public and you are not a member' });
+      return;
+    }
   }
 
   // check if the user has already RSVPed to the event
@@ -153,8 +181,8 @@ export const createRsvp = async (req: AuthenticatedRequest, res: Response) => {
     }
   }
 
-  const body = { ...req.body, user_id: String(req.user.id), event_id: String(eventId) };
   try {
+    
     const rsvp = await eventsRsvpService.createRsvp(body);
     res.status(201).json(rsvp);
   } catch (err: any) {
