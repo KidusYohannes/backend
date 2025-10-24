@@ -80,13 +80,13 @@ export const addMahiber = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     //check if contribution is not null and create the first MahberContribution for the admin or creator of the mahber
-    if (contributionTerm) {
-      // implement code here
-      await createFirstContributionForMember(
-        mahber.id,
-        Number(req.user.id)
-      );
-    }
+    // if (contributionTerm) {
+    //   // implement code here
+    //   await createFirstContributionForMember(
+    //     mahber.id,
+    //     Number(req.user.id)
+    //   );
+    // }
 
     res.status(201).json({
       mahber,

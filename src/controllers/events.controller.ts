@@ -140,8 +140,10 @@ export const createRsvp = async (req: AuthenticatedRequest, res: Response) => {
 
   // If event is not public, ensure user is an accepted member of the event's mahber
   const isPublic = event.is_public === true || String(event.is_public) === 'true';
+  logger.info(`Event ${eventId} isPublic: ${isPublic}`);
   if (!isPublic) {
     const mahberId = event.mahber_id !== undefined && event.mahber_id !== null ? String(event.mahber_id) : null;
+    logger.info(`Event ${eventId} mahberId: ${mahberId}`);
     if (!mahberId) {
       const rsvp = await eventsRsvpService.createRsvp(body);
       res.status(201).json(rsvp);
@@ -155,6 +157,7 @@ export const createRsvp = async (req: AuthenticatedRequest, res: Response) => {
         status: 'accepted'
       }
     });
+    logger.info(`Member check for user ${req.user.id} in mahber ${mahberId}: ${member ? 'found' : 'not found'}`);
     if (!member) {
       res.status(403).json({ message: 'Forbidden: Event is not public and you are not a member' });
       return;
