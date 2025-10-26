@@ -84,7 +84,7 @@ export const deleteUser = async (id: number): Promise<boolean> => {
 };
 
 export const findUserByEmail = async (email: string): Promise<User | undefined> => {
-  const user = await UserModel.findOne({ where: { email } });
+  const user = await UserModel.findOne({ where: { email: email, status: { [Op.ne]: 'deleted' } } });
   return user ? (user.toJSON() as User) : undefined;
 };
 
